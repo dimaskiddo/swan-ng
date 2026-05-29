@@ -1,0 +1,7 @@
+dist
+vendor
+TASKS.md
+.env
+*.yaml
+**/.DS_Store
+**/.gitkeep

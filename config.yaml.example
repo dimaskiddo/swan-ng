@@ -1,0 +1,126 @@
+# SWAN-NG Configuration
+# Copy this file to config.yaml and customize as needed.
+
+server:
+  # Server FQDN used for certificate generation and IKEv2 identity.
+  hostname: "vpn.example.com"
+
+  # Address to bind UDP/TCP listeners on.
+  listen: "0.0.0.0"
+
+logging:
+  # Minimum log level: debug, info, warn, error
+  level: "info"
+
+  # Output destination: stdout, file
+  output: "stdout"
+
+  # Log file path (when output: file)
+  # file: "/var/log/swan-ng.log"
+
+  # Log file maximum file size, backups, and age for rotation
+  # max_size: 10
+  # max_backups: 5
+  # max_age: 7
+
+  # Rotated log file will be compressed if true
+  # compress: true
+
+# Virtual TUN interface settings for user-space ESP data plane.
+tun:
+  # Device name prefix. Linux: swan0, swan1, etc. macOS: auto-assigned utun.
+  # Windows: adapter name visible in Network Connections.
+  device_name: "swan0"
+
+  # MTU for the TUN interface.
+  # 1280 is safe for ESP overhead + IPv6 minimum.
+  mtu: 1280
+
+# IPsec connection definitions.
+# Named connections are defined inline below AND/OR loaded from ipsec.d/ directory.
+# Each key under "connections:" is the connection name (like LibreSWAN "conn <name>").
+#
+# For ALL available parameters and their defaults, see:
+# https://libreswan.org/man/ipsec.conf.5.html
+ipsec:
+  # Optional: additional connection definition directories.
+  # Files in these directories define one connection per file.
+  # Filename (without .yaml) becomes the connection name.
+  # Default: auto-detect ipsec.d/ in config directory.
+  # connection_dir:
+  #   - ipsec.d
+
+  # Hot-reload: if true, ipsec.d/ changes are applied live
+  # without daemon restart.
+  hot_reload: false
+
+  connections:
+    # Connection 1: Generic L2TP/IPsec Responder
+    l2tp-responder:
+      left: "%defaultroute"
+      leftid: "<host_server_public_ip>"
+      leftprotoport: "17/1701"
+      right: "%any"
+      rightprotoport: "17/1701"
+      authby: "secret"
+      psk: "<pre_shared_key>"
+      type: "transport"
+      auto: "add"
+
+    # Connection 2: Dedicated Site-to-Site Tunnel
+    # Can also be defined in ipsec.d/office-s2s.yaml
+    # office-s2s:
+    #   left: "<host_server_public_ip>"
+    #   leftsubnet: "10.0.1.0/24"
+    #   right: "<office_public_ip>"
+    #   rightsubnet: "10.0.2.0/24"
+    #   authby: "secret"
+    #   psk: "<site_to_site_psk>"
+    #   type: "tunnel"
+    #   auto: "start"
+
+# IKEv2 configuration.
+ikev2:
+  enabled: false
+
+  # Hot-reload: if true, IKEv2 profile.d/ changes are applied live
+  # without daemon restart.
+  hot_reload: false
+
+  # Dedicated IKEv2 address pool.
+  ipam:
+    # Client IP assignment range.
+    range: "10.0.0.10 - 10.0.0.250"
+
+    # DNS servers assigned.
+    dns:
+      - "1.1.1.1"
+      - "1.0.0.1"
+
+  profile:
+    - profile.d/ikev2-username.yaml
+
+# L2TP over IPsec configuration.
+l2tp:
+  enabled: false
+
+  # Hot-reload: if true, L2TP profile.d/ changes are applied live
+  # without daemon restart.
+  hot_reload: false
+
+  # Dedicated L2TP address pool.
+  ipam:
+    # Server-side PPP link IP address.
+    gateway: "192.168.42.1"
+
+    # Client IP assignment range.
+    range: "192.168.42.2 - 192.168.42.254"
+
+    # DNS servers assigned.
+    dns:
+      - "1.1.1.1"
+      - "1.0.0.1"
+
+  profile:
+    - profile.d/l2tp-username.yaml
+
