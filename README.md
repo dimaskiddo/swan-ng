@@ -124,7 +124,6 @@ sudo ./swan-ng service start
 
 ```sh
 git clone https://github.com/dimaskiddo/swan-ng.git
-
 cd swan-ng
 make vendor
 make build
