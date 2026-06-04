@@ -412,7 +412,7 @@ func (p *EAPPayload) Marshal() ([]byte, error) {
 // ---- Helper ----
 
 // marshalWithHeader prepends a generic payload header to body.
-func marshalWithHeader(pt PayloadType, body []byte) []byte {
+func marshalWithHeader(_ PayloadType, body []byte) []byte {
 	totalLen := PayloadHeaderLen + len(body)
 	buf := make([]byte, totalLen)
 	buf[0] = byte(PayloadNone) // NextPayload set by MarshalPayloadChain
