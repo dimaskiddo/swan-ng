@@ -48,12 +48,29 @@ func (h *IKEv2Handler) HandleAuth(sess *IKEv2Session, msg *Message, assignIP fun
 	tsRPayload := findTSPayload(innerChain, false)
 	cpPayload := findPayloadAs[*CPPayload](innerChain)
 
-	if idPayload == nil || authPayload == nil {
-		return nil, fmt.Errorf("IKE_AUTH: missing ID or AUTH payload")
+	if idPayload == nil {
+		return nil, fmt.Errorf("IKE_AUTH: missing ID payload")
 	}
 
 	sess.PeerIDType = idPayload.IDType
 	sess.PeerID = cloneBytes(idPayload.Data)
+
+	// EAP Flow Detection (RFC 7296 §2.16):
+	// If client sends IDi WITHOUT an AUTH payload, and we have EAP credentials
+	// lookup available, initiate an EAP exchange instead of PSK verification.
+	if authPayload == nil && h.getEAPCredentials != nil {
+		// Save SA/TS/CP payloads for later use after EAP completes.
+		sess.pendingAuthSA = saPayload
+		sess.pendingAuthTSi = tsIPayload
+		sess.pendingAuthTSr = tsRPayload
+		sess.pendingAuthCP = cpPayload
+
+		return h.startEAPExchange(sess, idPayload)
+	}
+
+	if authPayload == nil {
+		return nil, fmt.Errorf("IKE_AUTH: missing AUTH payload")
+	}
 
 	// Lookup PSK for this peer.
 	psk, connName, err := h.getConnPSK(sess.PeerAddr, sess.PeerID)

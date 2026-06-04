@@ -11,6 +11,7 @@ func TestIKEv1HandleMainMode1(t *testing.T) {
 		func(peerAddr *net.UDPAddr) ([]byte, string, error) {
 			return []byte("test_psk"), "test_conn", nil
 		},
+		nil, // getXAUTHCredentials
 		[]byte("local_id"),
 		IDIPv4Addr,
 	)

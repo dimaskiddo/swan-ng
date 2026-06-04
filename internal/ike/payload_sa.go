@@ -5,6 +5,110 @@ import (
 	"fmt"
 )
 
+// ---- IKEv1 Transform Attribute IDs (RFC 2409 §A) ----
+
+const (
+	V1AttrEncryptionAlg uint16 = 1
+	V1AttrHashAlg       uint16 = 2
+	V1AttrAuthMethod    uint16 = 3
+	V1AttrGroupDesc     uint16 = 4
+	V1AttrGroupType     uint16 = 5
+	V1AttrLifeType      uint16 = 11
+	V1AttrLifeDuration  uint16 = 12
+	V1AttrKeyLength     uint16 = 14
+)
+
+// IKEv1 Encryption Algorithm IDs (RFC 2409 Appendix A)
+const (
+	V1EncrDES_CBC  uint16 = 1
+	V1EncrIDEA_CBC uint16 = 2
+	V1EncrBF_CBC   uint16 = 3
+	V1EncrRC5_R16  uint16 = 4
+	V1Encr3DES_CBC uint16 = 5
+	V1EncrCAST_CBC uint16 = 6
+	V1EncrAES_CBC  uint16 = 7
+)
+
+// IKEv1 Hash Algorithm IDs (RFC 2409 Appendix A)
+const (
+	V1HashMD5    uint16 = 1
+	V1HashSHA1   uint16 = 2
+	V1HashTIGER  uint16 = 3
+	V1HashSHA256 uint16 = 4
+	V1HashSHA384 uint16 = 5
+	V1HashSHA512 uint16 = 6
+)
+
+// IKEv1 Authentication Method IDs (RFC 2409 Appendix A)
+const (
+	V1AuthPreSharedKey uint16 = 1
+	V1AuthDSS_Sig      uint16 = 2
+	V1AuthRSA_Sig      uint16 = 3
+	V1AuthRSA_Enc      uint16 = 4
+	V1AuthRSA_RevEnc   uint16 = 5
+)
+
+// IKEv1 XAUTH Authentication Method IDs (draft-ietf-ipsec-isakmp-xauth-06)
+const (
+	V1AuthXAUTH_InitPSK uint16 = 65001
+	V1AuthXAUTH_RespPSK uint16 = 65005
+	V1AuthXAUTH_InitRSA uint16 = 65003
+	V1AuthXAUTH_RespRSA uint16 = 65007
+)
+
+// XAUTH attribute type IDs (draft-ietf-ipsec-isakmp-xauth-06 §6).
+const (
+	XAUTH_TYPE          uint16 = 16520
+	XAUTH_USER_NAME     uint16 = 16521
+	XAUTH_USER_PASSWORD uint16 = 16522
+	XAUTH_PASSCODE      uint16 = 16523
+	XAUTH_MESSAGE       uint16 = 16528
+	XAUTH_CHALLENGE     uint16 = 16529
+	XAUTH_DOMAIN        uint16 = 16530
+	XAUTH_STATUS        uint16 = 16527
+)
+
+// IKEv1 Life Type values.
+const (
+	V1LifeTypeSeconds uint16 = 1
+	V1LifeTypeKB      uint16 = 2
+)
+
+// IKEv1 IPsec Transform IDs for ESP (RFC 2407 §4.4.4).
+const (
+	V1ESPTransformDES  uint8 = 2
+	V1ESPTransform3DES uint8 = 3
+	V1ESPTransformAES  uint8 = 12
+	V1ESPTransformNULL uint8 = 11
+)
+
+// IKEv1 IPsec Auth Algorithm for Phase 2 (RFC 2407 §4.5).
+const (
+	V1IPsecAuthHMAC_MD5    uint16 = 1
+	V1IPsecAuthHMAC_SHA1   uint16 = 2
+	V1IPsecAuthHMAC_SHA256 uint16 = 5
+)
+
+// IKEv1 Phase 2 attribute types (RFC 2407 §4.5).
+const (
+	V1P2AttrLifeType     uint16 = 1
+	V1P2AttrLifeDuration uint16 = 2
+	V1P2AttrGroupDesc    uint16 = 3
+	V1P2AttrEncapMode    uint16 = 4
+	V1P2AttrAuthAlg      uint16 = 5
+	V1P2AttrKeyLength    uint16 = 6
+)
+
+// IKEv1 Encapsulation modes (RFC 2407 §4.5).
+const (
+	V1EncapTunnel    uint16 = 1
+	V1EncapTransport uint16 = 2
+
+	// NAT-T encapsulation modes (RFC 3947).
+	V1EncapUDPTunnel    uint16 = 3
+	V1EncapUDPTransport uint16 = 4
+)
+
 // ---- IKEv2 Transform Types (RFC 7296 §3.3.2) ----
 
 // TransformType identifies the type of an IKEv2 cryptographic transform.
@@ -308,87 +412,3 @@ func parseV2Transforms(buf []byte, count int) []Transform {
 
 	return transforms
 }
-
-// ---- IKEv1 Transform Attribute IDs (RFC 2409 §A) ----
-
-const (
-	V1AttrEncryptionAlg uint16 = 1
-	V1AttrHashAlg       uint16 = 2
-	V1AttrAuthMethod    uint16 = 3
-	V1AttrGroupDesc     uint16 = 4
-	V1AttrGroupType     uint16 = 5
-	V1AttrLifeType      uint16 = 11
-	V1AttrLifeDuration  uint16 = 12
-	V1AttrKeyLength     uint16 = 14
-)
-
-// IKEv1 Encryption Algorithm IDs (RFC 2409 Appendix A).
-const (
-	V1EncrDES_CBC  uint16 = 1
-	V1EncrIDEA_CBC uint16 = 2
-	V1EncrBF_CBC   uint16 = 3
-	V1EncrRC5_R16  uint16 = 4
-	V1Encr3DES_CBC uint16 = 5
-	V1EncrCAST_CBC uint16 = 6
-	V1EncrAES_CBC  uint16 = 7
-)
-
-// IKEv1 Hash Algorithm IDs (RFC 2409 Appendix A).
-const (
-	V1HashMD5    uint16 = 1
-	V1HashSHA1   uint16 = 2
-	V1HashTIGER  uint16 = 3
-	V1HashSHA256 uint16 = 4
-	V1HashSHA384 uint16 = 5
-	V1HashSHA512 uint16 = 6
-)
-
-// IKEv1 Authentication Method IDs (RFC 2409 Appendix A).
-const (
-	V1AuthPreSharedKey uint16 = 1
-	V1AuthDSS_Sig      uint16 = 2
-	V1AuthRSA_Sig      uint16 = 3
-	V1AuthRSA_Enc      uint16 = 4
-	V1AuthRSA_RevEnc   uint16 = 5
-)
-
-// IKEv1 Life Type values.
-const (
-	V1LifeTypeSeconds uint16 = 1
-	V1LifeTypeKB      uint16 = 2
-)
-
-// IKEv1 IPsec Transform IDs for ESP (RFC 2407 §4.4.4).
-const (
-	V1ESPTransformDES  uint8 = 2
-	V1ESPTransform3DES uint8 = 3
-	V1ESPTransformAES  uint8 = 12
-	V1ESPTransformNULL uint8 = 11
-)
-
-// IKEv1 IPsec Auth Algorithm for Phase 2 (RFC 2407 §4.5).
-const (
-	V1IPsecAuthHMAC_MD5    uint16 = 1
-	V1IPsecAuthHMAC_SHA1   uint16 = 2
-	V1IPsecAuthHMAC_SHA256 uint16 = 5
-)
-
-// IKEv1 Phase 2 attribute types (RFC 2407 §4.5).
-const (
-	V1P2AttrLifeType     uint16 = 1
-	V1P2AttrLifeDuration uint16 = 2
-	V1P2AttrGroupDesc    uint16 = 3
-	V1P2AttrEncapMode    uint16 = 4
-	V1P2AttrAuthAlg      uint16 = 5
-	V1P2AttrKeyLength    uint16 = 6
-)
-
-// IKEv1 Encapsulation modes (RFC 2407 §4.5).
-const (
-	V1EncapTunnel    uint16 = 1
-	V1EncapTransport uint16 = 2
-
-	// NAT-T encapsulation modes (RFC 3947).
-	V1EncapUDPTunnel    uint16 = 3
-	V1EncapUDPTransport uint16 = 4
-)

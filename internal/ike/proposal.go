@@ -348,6 +348,13 @@ type V1Phase1Config struct {
 // DefaultV1Phase1Configs returns supported IKEv1 Phase 1 configurations.
 func DefaultV1Phase1Configs() []V1Phase1Config {
 	return []V1Phase1Config{
+		// XAUTH+PSK variants (highest priority for XAUTH clients).
+		{EncAlg: V1EncrAES_CBC, HashAlg: V1HashSHA256, AuthMethod: V1AuthXAUTH_InitPSK, DHGroup: DHGroup14, KeyLength: 256},
+		{EncAlg: V1EncrAES_CBC, HashAlg: V1HashSHA256, AuthMethod: V1AuthXAUTH_InitPSK, DHGroup: DHGroup14, KeyLength: 128},
+		{EncAlg: V1EncrAES_CBC, HashAlg: V1HashSHA1, AuthMethod: V1AuthXAUTH_InitPSK, DHGroup: DHGroup14, KeyLength: 256},
+		{EncAlg: V1EncrAES_CBC, HashAlg: V1HashSHA1, AuthMethod: V1AuthXAUTH_InitPSK, DHGroup: DHGroup14, KeyLength: 128},
+		{EncAlg: V1Encr3DES_CBC, HashAlg: V1HashSHA1, AuthMethod: V1AuthXAUTH_InitPSK, DHGroup: DHGroup2},
+		// Standard PSK variants.
 		{EncAlg: V1EncrAES_CBC, HashAlg: V1HashSHA256, AuthMethod: V1AuthPreSharedKey, DHGroup: DHGroup14, KeyLength: 256},
 		{EncAlg: V1EncrAES_CBC, HashAlg: V1HashSHA256, AuthMethod: V1AuthPreSharedKey, DHGroup: DHGroup14, KeyLength: 128},
 		{EncAlg: V1EncrAES_CBC, HashAlg: V1HashSHA1, AuthMethod: V1AuthPreSharedKey, DHGroup: DHGroup14, KeyLength: 256},

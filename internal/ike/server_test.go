@@ -26,10 +26,10 @@ func TestServer_DispatchIKEv2(t *testing.T) {
 	sm := NewSessionManager(espEngine)
 
 	sender := &mockUDPSender{}
-	
+
 	// Create mock handlers
-	v1Handler := NewIKEv1Handler(nil, nil, 0)
-	v2Handler := NewIKEv2Handler(nil, nil, 0, CookieModeAuto)
+	v1Handler := NewIKEv1Handler(nil, nil, nil, 0)
+	v2Handler := NewIKEv2Handler(nil, nil, nil, nil, 0, CookieModeAuto)
 
 	server := NewServer(sm, v1Handler, v2Handler, sender)
 
@@ -64,9 +64,9 @@ func TestServer_DispatchIKEv1(t *testing.T) {
 	sm := NewSessionManager(espEngine)
 
 	sender := &mockUDPSender{}
-	
-	v1Handler := NewIKEv1Handler(nil, nil, 0)
-	v2Handler := NewIKEv2Handler(nil, nil, 0, CookieModeAuto)
+
+	v1Handler := NewIKEv1Handler(nil, nil, nil, 0)
+	v2Handler := NewIKEv2Handler(nil, nil, nil, nil, 0, CookieModeAuto)
 
 	server := NewServer(sm, v1Handler, v2Handler, sender)
 

@@ -97,8 +97,14 @@ func (s *Server) handleIKEv2(packetData []byte, _ Header, remoteAddr *net.UDPAdd
 			log.Debug("IKE_AUTH: session not found", "spi", fmt.Sprintf("%x", msg.Header.InitiatorSPI))
 			return
 		}
-		// Passing nil for IP assignment and DNS servers for now (Phase 6 IPAM).
-		resp, procErr = s.V2Handler.HandleAuth(sess, msg, nil, nil)
+
+		// EAP multi-round: if session is in EAP state, route to EAP handler.
+		if sess.State == StateV2EAPInProgress || sess.State == StateV2EAPDone {
+			resp, procErr = s.V2Handler.HandleAuthEAP(sess, msg, nil, nil)
+		} else {
+			// Passing nil for IP assignment and DNS servers for now (Phase 6 IPAM).
+			resp, procErr = s.V2Handler.HandleAuth(sess, msg, nil, nil)
+		}
 
 	case ExchangeInformational:
 		sess := s.SessionManager.GetV2Session(msg.Header.SPIPair())
@@ -157,6 +163,26 @@ func (s *Server) handleIKEv1(packetData []byte, hdr Header, remoteAddr *net.UDPA
 				log.Debug("IKEv1 session not found", "spi", fmt.Sprintf("%x", hdr.InitiatorSPI))
 				return
 			}
+		}
+	}
+
+	// Transaction Exchange (XAUTH / Mode Config).
+	if hdr.ExchangeType == ExchangeTransaction {
+		sess := s.SessionManager.GetV1Session(hdr.SPIPair())
+		if sess == nil {
+			log.Debug("IKEv1 Transaction: session not found",
+				"spi", fmt.Sprintf("%x", hdr.InitiatorSPI))
+			return
+		}
+
+		resp, err := s.V1Handler.HandleTransaction(sess, packetData, hdr)
+		if err != nil {
+			log.Debug("IKEv1 Transaction error", "error", err, "peer", remoteAddr)
+			return
+		}
+
+		if resp != nil {
+			s.sendResponse(resp, remoteAddr, isNATT)
 		}
 	}
 }

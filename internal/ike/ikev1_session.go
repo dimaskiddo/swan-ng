@@ -16,11 +16,13 @@ const (
 	StateV1AggrRecv               // Aggressive: received msg1, sent msg2
 	StateV1AggrDone               // Aggressive: received msg3 — done
 	StateV1Established            // Phase 1 SA established
+	StateV1XAUTHSent              // XAUTH challenge sent, awaiting reply
+	StateV1XAUTHDone              // XAUTH completed successfully
 	StateV1Deleting               // Phase 1 SA is deleting
 )
 
 func (s IKEv1State) String() string {
-	names := [...]string{"Idle", "MainSARecv", "MainKERecv", "MainIDRecv", "AggrRecv", "AggrDone", "Established", "Deleting"}
+	names := [...]string{"Idle", "MainSARecv", "MainKERecv", "MainIDRecv", "AggrRecv", "AggrDone", "Established", "XAUTHSent", "XAUTHDone", "Deleting"}
 	if int(s) < len(names) {
 		return names[s]
 	}
@@ -76,6 +78,10 @@ type IKEv1Session struct {
 
 	// Connection config name.
 	ConnName string
+
+	// XAUTH state.
+	XAUTHEnabled bool   // true if connection uses XAUTH+PSK
+	XAUTHUser    string // Authenticated XAUTH username
 
 	// Message ID counter for Quick Mode.
 	NextMsgID uint32

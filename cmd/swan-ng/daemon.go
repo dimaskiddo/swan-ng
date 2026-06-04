@@ -128,7 +128,7 @@ IKEv2/L2TP/ESP packet processing.`,
 
 			return nil, "", fmt.Errorf("no IKEv1 PSK found for %s", peerAddr.String())
 		}
-		ikev1Handler := ike.NewIKEv1Handler(v1PSKFunc, []byte("swan-ng"), ike.IDIPv4Addr)
+		ikev1Handler := ike.NewIKEv1Handler(v1PSKFunc, nil, []byte("swan-ng"), ike.IDIPv4Addr)
 
 		v2PSKFunc := func(peerAddr *net.UDPAddr, peerID []byte) ([]byte, string, error) {
 			peerIDStr := string(peerID)
@@ -151,7 +151,7 @@ IKEv2/L2TP/ESP packet processing.`,
 
 			return nil, "", fmt.Errorf("no IKEv2 PSK found for %s (ID: %s)", peerAddr.String(), peerIDStr)
 		}
-		ikev2Handler := ike.NewIKEv2Handler(v2PSKFunc, []byte("swan-ng"), ike.IDIPv4Addr, ike.CookieModeAuto)
+		ikev2Handler := ike.NewIKEv2Handler(v2PSKFunc, nil, nil, []byte("swan-ng"), ike.IDIPv4Addr, ike.CookieModeAuto)
 
 		ikeServer := ike.NewServer(ikeSessionMgr, ikev1Handler, ikev2Handler, listenMgr)
 

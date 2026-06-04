@@ -20,15 +20,17 @@ import (
 type IKEv2State uint8
 
 const (
-	StateV2Idle        IKEv2State = iota
-	StateV2InitRecv               // Responder: received SA_INIT, sent response
-	StateV2Established            // IKE SA established
-	StateV2Rekeying               // Rekeying in progress
-	StateV2Deleting               // Deletion in progress
+	StateV2Idle          IKEv2State = iota
+	StateV2InitRecv                 // Responder: received SA_INIT, sent response
+	StateV2EAPInProgress            // EAP exchange in progress (multi-round IKE_AUTH)
+	StateV2EAPDone                  // EAP completed, awaiting final AUTH exchange
+	StateV2Established              // IKE SA established
+	StateV2Rekeying                 // Rekeying in progress
+	StateV2Deleting                 // Deletion in progress
 )
 
 func (s IKEv2State) String() string {
-	names := [...]string{"Idle", "InitRecv", "Established", "Rekeying", "Deleting"}
+	names := [...]string{"Idle", "InitRecv", "EAPInProgress", "EAPDone", "Established", "Rekeying", "Deleting"}
 	if int(s) < len(names) {
 		return names[s]
 	}
@@ -125,6 +127,20 @@ type IKEv2Session struct {
 
 	// Child SAs.
 	ChildSAs []*IKEv2ChildSA
+
+	// EAP state (for EAP-MSCHAPv2 / EAP-TLS multi-round auth).
+	// Holds *MSCHAPv2State, *EAPTLSState, or nil for non-EAP auth.
+	EAPState      interface{}
+	EAPIdentifier uint8  // Current EAP packet identifier counter
+	EAPMethod     uint8  // Negotiated EAP method (EAPTypeMSCHAPv2, EAPTypeTLS)
+	EAPMSK        []byte // Master Session Key derived from EAP method
+
+	// Pending payloads from initial IKE_AUTH request (saved during EAP exchange).
+	// After EAP completes, these are used to finalize Child SA establishment.
+	pendingAuthSA  *SAPayload
+	pendingAuthTSi *TSPayload
+	pendingAuthTSr *TSPayload
+	pendingAuthCP  *CPPayload
 
 	CreatedAt time.Time
 }

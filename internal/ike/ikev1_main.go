@@ -14,19 +14,21 @@ import (
 
 // IKEv1Handler handles IKEv1 exchanges (responder).
 type IKEv1Handler struct {
-	supportedP1 []V1Phase1Config
-	getConnPSK  func(peerAddr *net.UDPAddr) (psk []byte, connName string, err error)
-	localID     []byte
-	localIDType IDType
+	supportedP1         []V1Phase1Config
+	getConnPSK          func(peerAddr *net.UDPAddr) (psk []byte, connName string, err error)
+	getXAUTHCredentials func(username, password string) bool
+	localID             []byte
+	localIDType         IDType
 }
 
 // NewIKEv1Handler creates a new IKEv1 exchange handler.
-func NewIKEv1Handler(getConnPSK func(peerAddr *net.UDPAddr) ([]byte, string, error), localID []byte, localIDType IDType) *IKEv1Handler {
+func NewIKEv1Handler(getConnPSK func(peerAddr *net.UDPAddr) ([]byte, string, error), getXAUTHCredentials func(username, password string) bool, localID []byte, localIDType IDType) *IKEv1Handler {
 	return &IKEv1Handler{
-		supportedP1: DefaultV1Phase1Configs(),
-		getConnPSK:  getConnPSK,
-		localID:     localID,
-		localIDType: localIDType,
+		supportedP1:         DefaultV1Phase1Configs(),
+		getConnPSK:          getConnPSK,
+		getXAUTHCredentials: getXAUTHCredentials,
+		localID:             localID,
+		localIDType:         localIDType,
 	}
 }
 

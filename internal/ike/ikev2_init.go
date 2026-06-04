@@ -2,6 +2,8 @@ package ike
 
 import (
 	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net"
 	"time"
@@ -9,11 +11,19 @@ import (
 	"github.com/dimaskiddo/swan-ng/internal/log"
 )
 
+// CertProvider provides server certificates for EAP-TLS.
+type CertProvider interface {
+	ServerTLSCertificate() (tls.Certificate, error)
+	CACertPool() *x509.CertPool
+}
+
 // IKEv2Handler handles IKEv2 exchanges (responder).
 type IKEv2Handler struct {
 	defaultIKEProposals   *SAPayload
 	defaultChildProposals *SAPayload
 	getConnPSK            func(peerAddr *net.UDPAddr, peerID []byte) (psk []byte, connName string, err error)
+	getEAPCredentials     func(username string) (password string, found bool)
+	certProvider          CertProvider
 	localID               []byte
 	localIDType           IDType
 	cookieMode            CookieMode
@@ -21,7 +31,7 @@ type IKEv2Handler struct {
 }
 
 // NewIKEv2Handler creates a new IKEv2 exchange handler.
-func NewIKEv2Handler(getConnPSK func(peerAddr *net.UDPAddr, peerID []byte) ([]byte, string, error), localID []byte, localIDType IDType, cookieMode CookieMode) *IKEv2Handler {
+func NewIKEv2Handler(getConnPSK func(peerAddr *net.UDPAddr, peerID []byte) ([]byte, string, error), getEAPCredentials func(username string) (string, bool), certProvider CertProvider, localID []byte, localIDType IDType, cookieMode CookieMode) *IKEv2Handler {
 	// Generate random cookie secret.
 	secret := make([]byte, 32)
 	if _, err := rand.Read(secret); err != nil {
@@ -32,6 +42,8 @@ func NewIKEv2Handler(getConnPSK func(peerAddr *net.UDPAddr, peerID []byte) ([]by
 		defaultIKEProposals:   DefaultIKEProposals(),
 		defaultChildProposals: DefaultESPProposals(),
 		getConnPSK:            getConnPSK,
+		getEAPCredentials:     getEAPCredentials,
+		certProvider:          certProvider,
 		localID:               localID,
 		localIDType:           localIDType,
 		cookieMode:            cookieMode,

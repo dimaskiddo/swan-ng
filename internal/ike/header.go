@@ -30,6 +30,7 @@ const (
 	ExchangeAuthOnly        ExchangeType = 3  // Authentication Only
 	ExchangeAggressive      ExchangeType = 4  // Aggressive Mode
 	ExchangeInformationalV1 ExchangeType = 5  // Informational (IKEv1)
+	ExchangeTransaction     ExchangeType = 6  // Transaction Exchange (XAUTH / Mode Config)
 	ExchangeQuickMode       ExchangeType = 32 // Quick Mode (Phase 2)
 	ExchangeNewGroupMode    ExchangeType = 33 // New Group Mode
 
@@ -57,6 +58,9 @@ func (et ExchangeType) String() string {
 
 	case ExchangeInformationalV1:
 		return "Informational (v1)"
+
+	case ExchangeTransaction:
+		return "Transaction"
 
 	case ExchangeQuickMode:
 		return "Quick Mode"

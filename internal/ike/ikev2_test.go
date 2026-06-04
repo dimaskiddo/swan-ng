@@ -81,6 +81,8 @@ func TestIKEv2HandleSAInit(t *testing.T) {
 		func(peerAddr *net.UDPAddr, peerID []byte) ([]byte, string, error) {
 			return []byte("test_psk"), "test_conn", nil
 		},
+		nil, // getEAPCredentials
+		nil, // certProvider
 		[]byte("responder.example.com"),
 		IDFQDN,
 		CookieModeUnlimited,
