@@ -20,9 +20,7 @@ const (
 )
 
 func (s IKEv1State) String() string {
-	names := [...]string{"Idle", "MainSARecv", "MainKERecv", "MainIDRecv",
-		"AggrRecv", "AggrDone", "Established", "Deleting"}
-
+	names := [...]string{"Idle", "MainSARecv", "MainKERecv", "MainIDRecv", "AggrRecv", "AggrDone", "Established", "Deleting"}
 	if int(s) < len(names) {
 		return names[s]
 	}

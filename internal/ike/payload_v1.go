@@ -25,7 +25,9 @@ type SAv1Payload struct {
 	Proposals []ProposalV1Payload
 }
 
-func (p *SAv1Payload) Type() PayloadType { return PayloadSAV1 }
+func (p *SAv1Payload) Type() PayloadType {
+	return PayloadSAV1
+}
 
 func (p *SAv1Payload) Marshal() ([]byte, error) {
 	// Marshal proposals as a sub-chain.
@@ -57,8 +59,10 @@ func (p *SAv1Payload) Marshal() ([]byte, error) {
 
 	// SA body: DOI(4) + Situation(4) + proposals
 	body := make([]byte, 8+len(propBytes))
+
 	binary.BigEndian.PutUint32(body[0:4], p.DOI)
 	binary.BigEndian.PutUint32(body[4:8], p.Situation)
+
 	copy(body[8:], propBytes)
 
 	return marshalWithHeader(p.Type(), body), nil
@@ -106,6 +110,7 @@ func (p *ProposalV1Payload) marshalBody() ([]byte, error) {
 	body[1] = byte(p.ProtocolID)
 	body[2] = byte(len(p.SPI))
 	body[3] = byte(len(p.Transforms))
+
 	copy(body[4:], p.SPI)
 	copy(body[4+len(p.SPI):], xformBytes)
 
@@ -148,6 +153,7 @@ func (a ISAKMPAttribute) Marshal() []byte {
 	if a.IsTV {
 		buf := make([]byte, 4)
 		binary.BigEndian.PutUint16(buf[0:2], a.Type|0x8000) // Set AF bit for TV
+
 		if len(a.Value) >= 2 {
 			copy(buf[2:4], a.Value[:2])
 		}
@@ -156,8 +162,10 @@ func (a ISAKMPAttribute) Marshal() []byte {
 	}
 
 	buf := make([]byte, 4+len(a.Value))
+
 	binary.BigEndian.PutUint16(buf[0:2], a.Type&0x7FFF) // Clear AF bit for TLV
 	binary.BigEndian.PutUint16(buf[2:4], uint16(len(a.Value)))
+
 	copy(buf[4:], a.Value)
 
 	return buf
@@ -185,6 +193,7 @@ func ParseISAKMPAttributes(buf []byte) []ISAKMPAttribute {
 			if offset+4+attrLen > len(buf) {
 				break
 			}
+
 			attrs = append(attrs, ISAKMPAttribute{
 				Type:  attrType,
 				IsTV:  false,
@@ -204,7 +213,10 @@ type HashV1Payload struct {
 	HashData []byte
 }
 
-func (p *HashV1Payload) Type() PayloadType { return PayloadHashV1 }
+func (p *HashV1Payload) Type() PayloadType {
+	return PayloadHashV1
+}
+
 func (p *HashV1Payload) Marshal() ([]byte, error) {
 	return marshalWithHeader(p.Type(), p.HashData), nil
 }
@@ -214,7 +226,10 @@ type SIGv1Payload struct {
 	SigData []byte
 }
 
-func (p *SIGv1Payload) Type() PayloadType { return PayloadSIGV1 }
+func (p *SIGv1Payload) Type() PayloadType {
+	return PayloadSIGV1
+}
+
 func (p *SIGv1Payload) Marshal() ([]byte, error) {
 	return marshalWithHeader(p.Type(), p.SigData), nil
 }
@@ -224,7 +239,10 @@ type KEv1Payload struct {
 	Data []byte // Public DH value
 }
 
-func (p *KEv1Payload) Type() PayloadType { return PayloadKEV1 }
+func (p *KEv1Payload) Type() PayloadType {
+	return PayloadKEV1
+}
+
 func (p *KEv1Payload) Marshal() ([]byte, error) {
 	return marshalWithHeader(p.Type(), p.Data), nil
 }
@@ -234,7 +252,10 @@ type NonceV1Payload struct {
 	NonceData []byte
 }
 
-func (p *NonceV1Payload) Type() PayloadType { return PayloadNonceV1 }
+func (p *NonceV1Payload) Type() PayloadType {
+	return PayloadNonceV1
+}
+
 func (p *NonceV1Payload) Marshal() ([]byte, error) {
 	return marshalWithHeader(p.Type(), p.NonceData), nil
 }
@@ -247,11 +268,15 @@ type IDv1Payload struct {
 	Data     []byte
 }
 
-func (p *IDv1Payload) Type() PayloadType { return PayloadIDV1 }
+func (p *IDv1Payload) Type() PayloadType {
+	return PayloadIDV1
+}
+
 func (p *IDv1Payload) Marshal() ([]byte, error) {
 	body := make([]byte, 4+len(p.Data))
 	body[0] = byte(p.IDType)
 	body[1] = p.ProtoDOI
+
 	binary.BigEndian.PutUint16(body[2:4], p.Port)
 	copy(body[4:], p.Data)
 
@@ -268,13 +293,20 @@ type NotifyV1Payload struct {
 	NotifyData    []byte
 }
 
-func (p *NotifyV1Payload) Type() PayloadType { return PayloadNotifyV1 }
+func (p *NotifyV1Payload) Type() PayloadType {
+	return PayloadNotifyV1
+}
+
 func (p *NotifyV1Payload) Marshal() ([]byte, error) {
 	body := make([]byte, 8+len(p.SPI)+len(p.NotifyData))
+
 	binary.BigEndian.PutUint32(body[0:4], p.DOI)
+
 	body[4] = byte(p.ProtocolID)
 	body[5] = byte(len(p.SPI))
+
 	binary.BigEndian.PutUint16(body[6:8], p.NotifyMsgType)
+
 	copy(body[8:], p.SPI)
 	copy(body[8+len(p.SPI):], p.NotifyData)
 
@@ -289,12 +321,18 @@ type DeleteV1Payload struct {
 	SPIs       [][]byte
 }
 
-func (p *DeleteV1Payload) Type() PayloadType { return PayloadDeleteV1 }
+func (p *DeleteV1Payload) Type() PayloadType {
+	return PayloadDeleteV1
+}
+
 func (p *DeleteV1Payload) Marshal() ([]byte, error) {
 	body := make([]byte, 8+len(p.SPIs)*int(p.SPISize))
+
 	binary.BigEndian.PutUint32(body[0:4], p.DOI)
+
 	body[4] = byte(p.ProtocolID)
 	body[5] = p.SPISize
+
 	binary.BigEndian.PutUint16(body[6:8], uint16(len(p.SPIs)))
 	offset := 8
 
@@ -311,7 +349,10 @@ type NATDv1Payload struct {
 	HashData []byte
 }
 
-func (p *NATDv1Payload) Type() PayloadType { return PayloadNATDV1 }
+func (p *NATDv1Payload) Type() PayloadType {
+	return PayloadNATDV1
+}
+
 func (p *NATDv1Payload) Marshal() ([]byte, error) {
 	return marshalWithHeader(p.Type(), p.HashData), nil
 }
@@ -444,6 +485,7 @@ func parseV1Proposal(body []byte) (*ProposalV1Payload, error) {
 
 		xfBody := xformBuf[offset+PayloadHeaderLen : offset+int(gph.Length)]
 		xf := parseV1Transform(xfBody)
+
 		prop.Transforms = append(prop.Transforms, xf)
 		offset += int(gph.Length)
 	}
@@ -459,7 +501,6 @@ func parseV1Transform(body []byte) TransformV1Payload {
 	}
 	xf.Number = body[0]
 	xf.TransformID = body[1]
-	// bytes 2-3 reserved
 	xf.Attributes = ParseISAKMPAttributes(body[4:])
 
 	return xf
@@ -469,6 +510,7 @@ func parseV1ID(body []byte) (*IDv1Payload, error) {
 	if len(body) < 4 {
 		return nil, fmt.Errorf("IDv1 payload too short: %d", len(body))
 	}
+
 	return &IDv1Payload{
 		IDType:   IDType(body[0]),
 		ProtoDOI: body[1],

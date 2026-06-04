@@ -21,10 +21,7 @@ type IKEv2Handler struct {
 }
 
 // NewIKEv2Handler creates a new IKEv2 exchange handler.
-func NewIKEv2Handler(
-	getConnPSK func(peerAddr *net.UDPAddr, peerID []byte) ([]byte, string, error),
-	localID []byte, localIDType IDType, cookieMode CookieMode,
-) *IKEv2Handler {
+func NewIKEv2Handler(getConnPSK func(peerAddr *net.UDPAddr, peerID []byte) ([]byte, string, error), localID []byte, localIDType IDType, cookieMode CookieMode) *IKEv2Handler {
 	// Generate random cookie secret.
 	secret := make([]byte, 32)
 	if _, err := rand.Read(secret); err != nil {
@@ -308,9 +305,7 @@ func (h *IKEv2Handler) findNotifyPayload(chain PayloadChain, notifyType NotifyTy
 }
 
 // buildSAInitError builds an error response for SA_INIT.
-func (h *IKEv2Handler) buildSAInitError(
-	req *Message, notifyType NotifyType, data []byte,
-) (*Message, *IKEv2Session, error) {
+func (h *IKEv2Handler) buildSAInitError(req *Message, notifyType NotifyType, data []byte) (*Message, *IKEv2Session, error) {
 	resp := &Message{
 		Header: Header{
 			InitiatorSPI: req.Header.InitiatorSPI,

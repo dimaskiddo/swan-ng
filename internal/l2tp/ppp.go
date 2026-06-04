@@ -60,9 +60,11 @@ func ParsePPPFrame(data []byte) (*PPPFrame, error) {
 		if len(data) < 4 {
 			return nil, fmt.Errorf("ppp: frame too short for address+control (%d bytes)", len(data))
 		}
+
 		if data[1] != pppControl {
 			return nil, fmt.Errorf("ppp: unexpected control byte 0x%02X (expected 0x03)", data[1])
 		}
+
 		offset = 2
 	}
 
@@ -83,6 +85,7 @@ func ParsePPPFrame(data []byte) (*PPPFrame, error) {
 		if len(remaining) < 2 {
 			return nil, fmt.Errorf("ppp: truncated 2-byte protocol field")
 		}
+
 		proto = binary.BigEndian.Uint16(remaining[0:2])
 		offset += 2
 	}
@@ -98,12 +101,16 @@ func ParsePPPFrame(data []byte) (*PPPFrame, error) {
 func SerializePPPFrame(proto uint16, payload []byte) []byte {
 	// Address(1) + Control(1) + Protocol(2) + payload.
 	frame := make([]byte, 4+len(payload))
+
 	frame[0] = pppAddress
 	frame[1] = pppControl
+
 	binary.BigEndian.PutUint16(frame[2:4], proto)
+
 	if len(payload) > 0 {
 		copy(frame[4:], payload)
 	}
+
 	return frame
 }
 
@@ -113,8 +120,10 @@ func SerializePPPFrameCompact(proto uint16, payload []byte) []byte {
 	// Protocol(2) + payload.
 	frame := make([]byte, 2+len(payload))
 	binary.BigEndian.PutUint16(frame[0:2], proto)
+
 	if len(payload) > 0 {
 		copy(frame[2:], payload)
 	}
+
 	return frame
 }

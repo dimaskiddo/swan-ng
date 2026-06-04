@@ -45,6 +45,7 @@ func (db *ProfileUserDB) LoadProfiles(paths []string) error {
 				"path", path,
 				"error", err.Error(),
 			)
+
 			continue
 		}
 
@@ -54,6 +55,7 @@ func (db *ProfileUserDB) LoadProfiles(paths []string) error {
 				"path", path,
 				"error", err.Error(),
 			)
+
 			continue
 		}
 
@@ -90,6 +92,7 @@ func (db *ProfileUserDB) LookupUser(username string) (string, bool) {
 func (db *ProfileUserDB) UserCount() int {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
+
 	return len(db.users)
 }
 
@@ -112,5 +115,6 @@ func (db *ProfileUserDB) String() string {
 	for u := range db.users {
 		usernames = append(usernames, u)
 	}
+
 	return fmt.Sprintf("ProfileUserDB{users=%d}", len(usernames))
 }

@@ -150,7 +150,9 @@ func (h *IKEv1Handler) HandleAggressive1(msg *Message, peerAddr *net.UDPAddr) (*
 			ExchangeType: ExchangeAggressive,
 		},
 	}
+
 	resp.Header.SetIKEv1()
+
 	resp.Payloads = PayloadChain{
 		{Payload: respSA},
 		{Payload: &KEv1Payload{Data: pubKey}},
@@ -232,6 +234,7 @@ func (p *ModeConfigPayload) Marshal() ([]byte, error) {
 
 	body[2] = byte(p.Identifier >> 8)
 	body[3] = byte(p.Identifier)
+
 	copy(body[4:], attrBytes)
 
 	return marshalWithHeader(p.Type(), body), nil
@@ -264,6 +267,7 @@ func (h *IKEv1Handler) HandleModeConfig(sess *IKEv1Session, msg *Message, assign
 	if sess.Encryptor != nil {
 		blockSize = sess.Encryptor.BlockSize()
 	}
+
 	qmIV := ComputeV1QuickModeIV(sess.HashAlg, sess.CurrentIV, msgID, blockSize)
 
 	msgBytes, err := msg.Marshal()
@@ -382,12 +386,14 @@ func (h *IKEv1Handler) HandleModeConfig(sess *IKEv1Session, msg *Message, assign
 			Length:       uint32(HeaderLen + len(encResp)),
 		},
 	}
+
 	resp.Header.SetIKEv1()
 
 	rawResp := make([]byte, HeaderLen+len(encResp))
 	if err := resp.Header.Marshal(rawResp); err != nil {
 		return nil, err
 	}
+
 	copy(rawResp[HeaderLen:], encResp)
 	resp.RawMessage = rawResp
 

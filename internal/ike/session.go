@@ -110,6 +110,7 @@ func (sm *SessionManager) RegisterV1Session(sess *IKEv1Session) error {
 	}
 
 	sm.v1Sessions[spiPair] = sess
+
 	log.Debug("IKEv1 session registered", "spi", fmt.Sprintf("%x", spiPair[:8]))
 	return nil
 }
@@ -118,6 +119,7 @@ func (sm *SessionManager) RegisterV1Session(sess *IKEv1Session) error {
 func (sm *SessionManager) GetV1Session(spiPair [16]byte) *IKEv1Session {
 	sm.mu.RLock()
 	defer sm.mu.RUnlock()
+
 	return sm.v1Sessions[spiPair]
 }
 
@@ -125,6 +127,7 @@ func (sm *SessionManager) GetV1Session(spiPair [16]byte) *IKEv1Session {
 func (sm *SessionManager) DeleteV1Session(spiPair [16]byte) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
+
 	sm.evictSessionLocked(spiPair)
 }
 
@@ -142,10 +145,12 @@ func (sm *SessionManager) evictSessionLocked(spiPair [16]byte) {
 		sess.mu.Lock()
 		sess.State = StateV2Deleting
 		peerIDStr = string(sess.PeerID)
+
 		// Clean up ESP SAs.
 		for _, child := range sess.ChildSAs {
 			sm.removeESPChildSA(child.InSPI, child.OutSPI, nil) // dstIP usually peer addr or assigned IP
 		}
+
 		sess.mu.Unlock()
 		delete(sm.v2Sessions, spiPair)
 	}
@@ -155,10 +160,12 @@ func (sm *SessionManager) evictSessionLocked(spiPair [16]byte) {
 		sess.mu.Lock()
 		sess.State = StateV1Deleting
 		peerIDStr = string(sess.PeerID)
+
 		// Remove ESP SAs.
 		for _, child := range sess.ChildSAs {
 			sm.removeESPChildSA(child.InSPI, child.OutSPI, nil)
 		}
+
 		sess.mu.Unlock()
 		delete(sm.v1Sessions, spiPair)
 	}
@@ -199,6 +206,7 @@ func (sm *SessionManager) InstallV2ChildSA(sess *IKEv2Session, child *IKEv2Child
 	if err != nil {
 		return fmt.Errorf("building inbound SA: %w", err)
 	}
+
 	sm.espEngine.AddInboundSA(inSA)
 
 	// Create Outbound ESP SA (encrypts traffic to peer).
@@ -243,6 +251,7 @@ func (sm *SessionManager) InstallV1ChildSA(sess *IKEv1Session, child *IKEv1Child
 	if err != nil {
 		return fmt.Errorf("building inbound SA: %w", err)
 	}
+
 	sm.espEngine.AddInboundSA(inSA)
 
 	outSA, err := sm.buildESPSA(outboundSPI, child.EncrID, child.IntegID, child.PeerEncrKey, child.PeerIntegKey, sess.PeerAddr)

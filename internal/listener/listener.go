@@ -191,6 +191,7 @@ func (l *UDPListener) readLoop(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
+
 		default:
 		}
 
@@ -204,6 +205,7 @@ func (l *UDPListener) readLoop(ctx context.Context) {
 			select {
 			case <-ctx.Done():
 				return
+
 			default:
 			}
 
@@ -223,7 +225,6 @@ func (l *UDPListener) readLoop(ctx context.Context) {
 
 		// Call handler synchronously. Handler must not retain buf.
 		l.handler(buf, n, remoteAddr)
-
 		l.pool.Put(buf)
 	}
 }

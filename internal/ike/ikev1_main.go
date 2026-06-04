@@ -21,11 +21,7 @@ type IKEv1Handler struct {
 }
 
 // NewIKEv1Handler creates a new IKEv1 exchange handler.
-func NewIKEv1Handler(
-	getConnPSK func(peerAddr *net.UDPAddr) ([]byte, string, error),
-	localID []byte,
-	localIDType IDType,
-) *IKEv1Handler {
+func NewIKEv1Handler(getConnPSK func(peerAddr *net.UDPAddr) ([]byte, string, error), localID []byte, localIDType IDType) *IKEv1Handler {
 	return &IKEv1Handler{
 		supportedP1: DefaultV1Phase1Configs(),
 		getConnPSK:  getConnPSK,
@@ -36,9 +32,7 @@ func NewIKEv1Handler(
 
 // HandleMainMode1 processes Main Mode message 1 (SA proposal from initiator).
 // Returns response message 2 (selected SA) and a new session.
-func (h *IKEv1Handler) HandleMainMode1(
-	msg *Message, peerAddr *net.UDPAddr,
-) (*Message, *IKEv1Session, error) {
+func (h *IKEv1Handler) HandleMainMode1(msg *Message, peerAddr *net.UDPAddr) (*Message, *IKEv1Session, error) {
 	// Extract SA payload.
 	saPayload := findPayloadAs[*SAv1Payload](msg.Payloads)
 	if saPayload == nil {
@@ -108,7 +102,9 @@ func (h *IKEv1Handler) HandleMainMode1(
 			Flags:        0, // No flags for IKEv1 response (no R bit)
 		},
 	}
+
 	resp.Header.SetIKEv1()
+
 	resp.Payloads = PayloadChain{
 		{Payload: respSA},
 	}
@@ -126,9 +122,7 @@ func (h *IKEv1Handler) HandleMainMode1(
 
 // HandleMainMode3 processes Main Mode message 3 (KE + Nonce from initiator).
 // Returns response message 4 (our KE + Nonce).
-func (h *IKEv1Handler) HandleMainMode3(
-	sess *IKEv1Session, msg *Message,
-) (*Message, error) {
+func (h *IKEv1Handler) HandleMainMode3(sess *IKEv1Session, msg *Message) (*Message, error) {
 	sess.mu.Lock()
 	defer sess.mu.Unlock()
 
@@ -175,8 +169,7 @@ func (h *IKEv1Handler) HandleMainMode3(
 	}
 
 	// Derive keys.
-	sess.Keys, err = DeriveIKEv1Keys(sess.PRF, sess.PSK, sess.SharedSecret,
-		sess.NonceI, sess.NonceR, sess.CookieI, sess.CookieR)
+	sess.Keys, err = DeriveIKEv1Keys(sess.PRF, sess.PSK, sess.SharedSecret, sess.NonceI, sess.NonceR, sess.CookieI, sess.CookieR)
 	if err != nil {
 		return nil, fmt.Errorf("Main Mode msg3: key derivation: %w", err)
 	}
@@ -207,7 +200,9 @@ func (h *IKEv1Handler) HandleMainMode3(
 			ExchangeType: ExchangeIdentityProtect,
 		},
 	}
+
 	resp.Header.SetIKEv1()
+
 	resp.Payloads = PayloadChain{
 		{Payload: &KEv1Payload{Data: sess.DHPubKey}},
 		{Payload: &NonceV1Payload{NonceData: sess.NonceR}},
@@ -219,9 +214,7 @@ func (h *IKEv1Handler) HandleMainMode3(
 
 // HandleMainMode5 processes Main Mode message 5 (encrypted ID + Hash from initiator).
 // Returns response message 6 (our encrypted ID + Hash).
-func (h *IKEv1Handler) HandleMainMode5(
-	sess *IKEv1Session, msg *Message,
-) (*Message, error) {
+func (h *IKEv1Handler) HandleMainMode5(sess *IKEv1Session, msg *Message) (*Message, error) {
 	sess.mu.Lock()
 	defer sess.mu.Unlock()
 
@@ -241,8 +234,7 @@ func (h *IKEv1Handler) HandleMainMode5(
 
 	// Decrypt payload portion (everything after header).
 	encPayload := msgBytes[HeaderLen:]
-	decrypted, err := DecryptIKEv1Payload(sess.Encryptor, sess.Keys.SKEYID_e,
-		sess.CurrentIV, encPayload)
+	decrypted, err := DecryptIKEv1Payload(sess.Encryptor, sess.Keys.SKEYID_e, sess.CurrentIV, encPayload)
 	if err != nil {
 		return nil, fmt.Errorf("Main Mode msg5: decrypt: %w", err)
 	}
@@ -265,6 +257,7 @@ func (h *IKEv1Handler) HandleMainMode5(
 	if idPayload == nil {
 		return nil, fmt.Errorf("Main Mode msg5: missing ID payload")
 	}
+
 	hashPayload := findPayloadInChain[*HashV1Payload](chain)
 	if hashPayload == nil {
 		return nil, fmt.Errorf("Main Mode msg5: missing Hash payload")
@@ -301,8 +294,7 @@ func (h *IKEv1Handler) HandleMainMode5(
 	}
 
 	// Encrypt response.
-	encResp, err := EncryptIKEv1Payload(sess.Encryptor, sess.Keys.SKEYID_e,
-		sess.CurrentIV, respPayloadBytes)
+	encResp, err := EncryptIKEv1Payload(sess.Encryptor, sess.Keys.SKEYID_e, sess.CurrentIV, respPayloadBytes)
 	if err != nil {
 		return nil, fmt.Errorf("Main Mode msg5: encrypt response: %w", err)
 	}
@@ -331,8 +323,8 @@ func (h *IKEv1Handler) HandleMainMode5(
 	if err := resp.Header.Marshal(rawResp); err != nil {
 		return nil, err
 	}
-	copy(rawResp[HeaderLen:], encResp)
 
+	copy(rawResp[HeaderLen:], encResp)
 	sess.State = StateV1Established
 
 	log.Info("IKEv1 Main Mode Phase 1 established",
@@ -352,10 +344,9 @@ func (h *IKEv1Handler) HandleMainMode5(
 //
 //	HASH_I = PRF(SKEYID, g^xi | g^xr | CKY-I | CKY-R | SAi_b | IDii_b)
 //	HASH_R = PRF(SKEYID, g^xr | g^xi | CKY-R | CKY-I | SAi_b | IDir_b)
-func (h *IKEv1Handler) computeV1Hash(
-	sess *IKEv1Session, isInitiator bool, idPayload *IDv1Payload,
-) []byte {
+func (h *IKEv1Handler) computeV1Hash(sess *IKEv1Session, isInitiator bool, idPayload *IDv1Payload) []byte {
 	idBytes, _ := idPayload.Marshal()
+
 	// Strip the generic payload header to get IDii_b / IDir_b.
 	idBody := idBytes
 	if len(idBytes) > PayloadHeaderLen {
@@ -374,6 +365,7 @@ func (h *IKEv1Handler) computeV1Hash(
 		input = append(input, sess.CookieR[:]...)
 		input = append(input, sess.CookieI[:]...)
 	}
+
 	// SAi_b is omitted in simplified PSK mode per common implementations.
 	input = append(input, idBody...)
 
@@ -389,6 +381,7 @@ func findPayloadAs[T Payload](chain PayloadChain) T {
 			return typed
 		}
 	}
+
 	var zero T
 	return zero
 }
@@ -402,10 +395,12 @@ func hashEqual(a, b []byte) bool {
 	if len(a) != len(b) {
 		return false
 	}
+
 	var diff byte
 	for i := range a {
 		diff |= a[i] ^ b[i]
 	}
+
 	return diff == 0
 }
 
@@ -470,6 +465,7 @@ func expandV1EncKey(prf PRFAlgorithm, skeyidE []byte, needed int) []byte {
 	// Expand: K1 = PRF(SKEYID_e, 0x00), K2 = PRF(SKEYID_e, K1), ...
 	var expanded []byte
 	prev := []byte{0}
+
 	for len(expanded) < needed {
 		prev = prf.Compute(skeyidE, prev)
 		expanded = append(expanded, prev...)
@@ -521,11 +517,13 @@ func ComputeV1QuickModeIV(hashAlg uint16, phase1IV []byte, msgID uint32, blockSi
 
 	h := hashFunc()
 	h.Write(phase1IV)
+
 	msgIDBuf := make([]byte, 4)
 	binary.BigEndian.PutUint32(msgIDBuf, msgID)
-	h.Write(msgIDBuf)
-	full := h.Sum(nil)
 
+	h.Write(msgIDBuf)
+
+	full := h.Sum(nil)
 	if len(full) < blockSize {
 		return full
 	}

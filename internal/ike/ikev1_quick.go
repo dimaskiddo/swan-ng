@@ -26,6 +26,7 @@ func (h *IKEv1Handler) HandleQuickMode1(sess *IKEv1Session, msg *Message) (*Mess
 	if sess.Encryptor != nil {
 		blockSize = sess.Encryptor.BlockSize()
 	}
+
 	qmIV := ComputeV1QuickModeIV(sess.HashAlg, sess.CurrentIV, msgID, blockSize)
 
 	// Message is encrypted — decrypt.
@@ -237,6 +238,7 @@ func extractV1ChildKeyLens(transforms []TransformV1Payload) (encrKeyLen, integKe
 	}
 
 	xf := transforms[0]
+
 	// Determine encryption key length.
 	switch xf.TransformID {
 	case V1ESPTransformAES:

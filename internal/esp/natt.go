@@ -50,8 +50,7 @@ func ClassifyNATT(buf []byte) (PacketType, []byte, error) {
 	// Non-zero first 4 bytes → ESP packet.
 	// The first 4 bytes are the SPI, so the full buffer is the ESP packet.
 	if len(buf) < MinNATTESPPacketLen {
-		return 0, nil, fmt.Errorf("NAT-T ESP packet too short: need >= %d, got %d",
-			MinNATTESPPacketLen, len(buf))
+		return 0, nil, fmt.Errorf("NAT-T ESP packet too short: need >= %d, got %d", MinNATTESPPacketLen, len(buf))
 	}
 
 	return PacketTypeESP, buf, nil
@@ -61,6 +60,7 @@ func ClassifyNATT(buf []byte) (PacketType, []byte, error) {
 // for sending over UDP:4500 per RFC 3948 §2.
 func PrependNonESPMarker(ikePacket []byte) []byte {
 	result := make([]byte, NonESPMarkerLen+len(ikePacket))
+
 	// First 4 bytes are already zero (Non-ESP Marker).
 	copy(result[NonESPMarkerLen:], ikePacket)
 

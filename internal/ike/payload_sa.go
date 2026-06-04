@@ -125,7 +125,9 @@ type SAPayload struct {
 	Proposals []Proposal
 }
 
-func (p *SAPayload) Type() PayloadType { return PayloadSA }
+func (p *SAPayload) Type() PayloadType {
+	return PayloadSA
+}
 
 func (p *SAPayload) Marshal() ([]byte, error) {
 	var proposalBytes []byte
@@ -235,6 +237,7 @@ func parseV2SA(body []byte) (*SAPayload, error) {
 			if offset+8+spiSize > offset+propLen {
 				return sa, fmt.Errorf("SA proposal SPI truncated")
 			}
+
 			spi = cloneBytes(body[offset+8 : offset+8+spiSize])
 		}
 
@@ -252,6 +255,7 @@ func parseV2SA(body []byte) (*SAPayload, error) {
 		if lastOrMore == 0 {
 			break // Last proposal
 		}
+
 		offset += propLen
 	}
 
@@ -268,6 +272,7 @@ func parseV2Transforms(buf []byte, count int) []Transform {
 		}
 
 		lastOrMore := buf[offset]
+
 		xfLen := int(binary.BigEndian.Uint16(buf[offset+2 : offset+4]))
 		xfType := TransformType(buf[offset+4])
 		xfID := binary.BigEndian.Uint16(buf[offset+6 : offset+8])
@@ -382,6 +387,7 @@ const (
 const (
 	V1EncapTunnel    uint16 = 1
 	V1EncapTransport uint16 = 2
+
 	// NAT-T encapsulation modes (RFC 3947).
 	V1EncapUDPTunnel    uint16 = 3
 	V1EncapUDPTransport uint16 = 4

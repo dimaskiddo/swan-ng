@@ -34,7 +34,9 @@ type SKFPayload struct {
 	EncryptedData  []byte // IV + ciphertext + ICV (same format as SK body)
 }
 
-func (p *SKFPayload) Type() PayloadType { return PayloadSKF }
+func (p *SKFPayload) Type() PayloadType {
+	return PayloadSKF
+}
 
 func (p *SKFPayload) Marshal() ([]byte, error) {
 	// Body = FragNum(2) + TotalFrags(2) + EncryptedData
@@ -262,6 +264,7 @@ func FragmentSKPayload(sess *IKEv2Session, exchangeType ExchangeType, isResponse
 				padLen = blockSize - (totalLen % blockSize)
 			}
 		}
+
 		padded := make([]byte, len(chunk)+padLen+1)
 
 		copy(padded, chunk)
@@ -295,6 +298,7 @@ func FragmentSKPayload(sess *IKEv2Session, exchangeType ExchangeType, isResponse
 			if err != nil {
 				return nil, fmt.Errorf("AEAD encrypt fragment %d: %w", fragNum, err)
 			}
+
 			encryptedBody = make([]byte, len(iv)+len(ciphertext))
 
 			copy(encryptedBody, iv)
@@ -306,13 +310,14 @@ func FragmentSKPayload(sess *IKEv2Session, exchangeType ExchangeType, isResponse
 			}
 
 			macInput := make([]byte, len(hdrBuf)+len(iv)+len(ciphertext))
+
 			copy(macInput, hdrBuf)
 			copy(macInput[len(hdrBuf):], iv)
 			copy(macInput[len(hdrBuf)+len(iv):], ciphertext)
 
 			icv := sess.Integrity.Compute(integKey, macInput)
-
 			encryptedBody = make([]byte, len(iv)+len(ciphertext)+len(icv))
+
 			copy(encryptedBody, iv)
 			copy(encryptedBody[len(iv):], ciphertext)
 			copy(encryptedBody[len(iv)+len(ciphertext):], icv)
@@ -466,9 +471,11 @@ func decryptSKBody(enc IKEEncryptor, integ IntegrityAlgorithm, encKey, integKey 
 
 	// Verify integrity.
 	macInput := make([]byte, len(aad)+ivSize+len(ciphertext))
+
 	copy(macInput, aad)
 	copy(macInput[len(aad):], iv)
 	copy(macInput[len(aad)+ivSize:], ciphertext)
+
 	expectedICV := integ.Compute(integKey, macInput)
 
 	if len(receivedICV) != len(expectedICV) {

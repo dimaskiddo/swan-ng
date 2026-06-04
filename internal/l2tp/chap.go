@@ -96,8 +96,11 @@ func (h *CHAPHandler) BuildChallenge() []byte {
 	pkt := make([]byte, totalLen)
 	pkt[0] = CHAPChallenge
 	pkt[1] = h.challengeID
+
 	binary.BigEndian.PutUint16(pkt[2:4], totalLen)
+
 	pkt[4] = valueSize
+
 	copy(pkt[5:5+len(h.challenge)], h.challenge)
 	copy(pkt[5+len(h.challenge):], nameBytes)
 
@@ -129,6 +132,7 @@ func (h *CHAPHandler) Handle(data []byte) []byte {
 	switch code {
 	case CHAPResponse:
 		return h.handleResponse(id, data[chapPacketHeaderLen:pktLen])
+
 	default:
 		log.Debug("chap: unexpected code", "code", code, "id", id)
 		return nil
@@ -154,6 +158,7 @@ func (h *CHAPHandler) handleResponse(id byte, payload []byte) []byte {
 			"value_size", valueSize,
 			"payload_len", len(payload),
 		)
+
 		return h.buildFailure(id, "malformed response")
 	}
 
@@ -210,9 +215,11 @@ func (h *CHAPHandler) handleResponse(id byte, payload []byte) []byte {
 // Per RFC 1994 §4.1: MD5(ID || Secret || Challenge).
 func (h *CHAPHandler) computeMD5Response(id byte, secret string) []byte {
 	hash := md5.New()
+
 	hash.Write([]byte{id})
 	hash.Write([]byte(secret))
 	hash.Write(h.challenge)
+
 	return hash.Sum(nil)
 }
 
@@ -226,6 +233,7 @@ func (h *CHAPHandler) buildSuccess(id byte, message string) []byte {
 	pkt := make([]byte, totalLen)
 	pkt[0] = CHAPSuccess
 	pkt[1] = id
+
 	binary.BigEndian.PutUint16(pkt[2:4], totalLen)
 	copy(pkt[4:], msgBytes)
 
@@ -242,6 +250,7 @@ func (h *CHAPHandler) buildFailure(id byte, message string) []byte {
 	pkt := make([]byte, totalLen)
 	pkt[0] = CHAPFailure
 	pkt[1] = id
+
 	binary.BigEndian.PutUint16(pkt[2:4], totalLen)
 	copy(pkt[4:], msgBytes)
 

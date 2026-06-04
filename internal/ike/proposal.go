@@ -122,6 +122,7 @@ func SelectProposal(ours, theirs *SAPayload) (*SelectedProposal, *Proposal, erro
 	if theirs == nil || len(theirs.Proposals) == 0 {
 		return nil, nil, fmt.Errorf("no proposals offered by peer")
 	}
+
 	if ours == nil || len(ours.Proposals) == 0 {
 		return nil, nil, fmt.Errorf("no local proposals configured")
 	}
@@ -168,6 +169,7 @@ func proposalMatch(ours, theirs *Proposal) bool {
 			if xfType == TransformTypeINTG {
 				continue
 			}
+
 			return false
 		}
 
@@ -207,6 +209,7 @@ func transformMatch(ours, theirs *Transform) bool {
 	if ours.Type != theirs.Type {
 		return false
 	}
+
 	if ours.ID != theirs.ID {
 		return false
 	}
@@ -318,6 +321,7 @@ func SelectV1Proposal(sa *SAv1Payload, supported []V1Phase1Config) (*V1Phase1Con
 		for _, xf := range prop.Transforms {
 			parsed := parseV1TransformAttrs(xf.Attributes)
 			parsed.EncAlg = uint16(xf.TransformID)
+
 			for _, sup := range supported {
 				if v1ConfigMatch(&sup, &parsed) {
 					matched := sup

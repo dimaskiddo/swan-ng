@@ -33,6 +33,7 @@ type Session struct {
 
 	// localSessionID is our assigned session ID.
 	localSessionID uint16
+
 	// remoteSessionID is the peer's assigned session ID.
 	remoteSessionID uint16
 
@@ -49,6 +50,7 @@ type Session struct {
 
 	// assignedIP is the IP address assigned to the peer from IPAM.
 	assignedIP net.IP
+
 	// username stores the authenticated username.
 	username string
 
@@ -76,6 +78,7 @@ func (s *Session) LocalSessionID() uint16 {
 func (s *Session) RemoteSessionID() uint16 {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	return s.remoteSessionID
 }
 
@@ -83,6 +86,7 @@ func (s *Session) RemoteSessionID() uint16 {
 func (s *Session) State() byte {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	return s.state
 }
 
@@ -90,6 +94,7 @@ func (s *Session) State() byte {
 func (s *Session) Username() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	return s.username
 }
 
@@ -97,6 +102,7 @@ func (s *Session) Username() string {
 func (s *Session) AssignedIP() net.IP {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	return s.assignedIP
 }
 
@@ -111,6 +117,7 @@ func (s *Session) handleICCN(avps []AVP) error {
 			"session", s.localSessionID,
 			"state", s.state,
 		)
+
 		return errInvalidState
 	}
 
@@ -144,6 +151,7 @@ func (s *Session) InitPPP(hostname string, userDB UserDatabase, assignedIP, gate
 	// Build and send our LCP Configure-Request.
 	lcpReq := s.lcpHandler.BuildConfigureRequest()
 	s.lcpConfigSent = true
+
 	return SerializePPPFrame(PPPProtoLCP, lcpReq)
 }
 
@@ -164,18 +172,23 @@ func (s *Session) HandleData(payload []byte) [][]byte {
 			"session", s.localSessionID,
 			"error", err.Error(),
 		)
+
 		return nil
 	}
 
 	switch pppFrame.Protocol {
 	case PPPProtoLCP:
 		return s.handleLCP(pppFrame.Payload)
+
 	case PPPProtoCHAP:
 		return s.handleCHAP(pppFrame.Payload)
+
 	case PPPProtoIPCP:
 		return s.handleIPCP(pppFrame.Payload)
+
 	case PPPProtoIPv4:
 		return s.handleIPv4(pppFrame.Payload)
+
 	case PPPProtoPAP:
 		// Reject PAP — we require CHAP only.
 		log.Debug("l2tp: rejecting PAP", "session", s.localSessionID)
@@ -183,7 +196,9 @@ func (s *Session) HandleData(payload []byte) [][]byte {
 			rej := s.lcpHandler.BuildProtocolReject(PPPProtoPAP, pppFrame.Payload)
 			return [][]byte{SerializePPPFrame(PPPProtoLCP, rej)}
 		}
+
 		return nil
+
 	case PPPProtoCCP:
 		// Reject CCP — no compression support.
 		log.Debug("l2tp: rejecting CCP", "session", s.localSessionID)
@@ -191,7 +206,9 @@ func (s *Session) HandleData(payload []byte) [][]byte {
 			rej := s.lcpHandler.BuildProtocolReject(PPPProtoCCP, pppFrame.Payload)
 			return [][]byte{SerializePPPFrame(PPPProtoLCP, rej)}
 		}
+
 		return nil
+
 	case PPPProtoIPv6CP:
 		// Reject IPv6CP — IPv4 only.
 		log.Debug("l2tp: rejecting IPv6CP", "session", s.localSessionID)
@@ -199,16 +216,20 @@ func (s *Session) HandleData(payload []byte) [][]byte {
 			rej := s.lcpHandler.BuildProtocolReject(PPPProtoIPv6CP, pppFrame.Payload)
 			return [][]byte{SerializePPPFrame(PPPProtoLCP, rej)}
 		}
+
 		return nil
+
 	default:
 		log.Debug("l2tp: unknown PPP protocol",
 			"session", s.localSessionID,
 			"protocol", pppFrame.Protocol,
 		)
+
 		if s.lcpHandler != nil {
 			rej := s.lcpHandler.BuildProtocolReject(pppFrame.Protocol, pppFrame.Payload)
 			return [][]byte{SerializePPPFrame(PPPProtoLCP, rej)}
 		}
+
 		return nil
 	}
 }
@@ -251,6 +272,7 @@ func (s *Session) handleCHAP(data []byte) [][]byte {
 			"session", s.localSessionID,
 			"phase", s.pppPhase,
 		)
+
 		return nil
 	}
 
@@ -288,6 +310,7 @@ func (s *Session) handleIPCP(data []byte) [][]byte {
 			"session", s.localSessionID,
 			"phase", s.pppPhase,
 		)
+
 		return nil
 	}
 
@@ -320,6 +343,7 @@ func (s *Session) handleIPv4(data []byte) [][]byte {
 		log.Debug("l2tp: IPv4 data before PPP established",
 			"session", s.localSessionID,
 		)
+
 		return nil
 	}
 
@@ -345,6 +369,7 @@ func (s *Session) SendData(pppFrame []byte) {
 	// Build L2TP data header + PPP frame.
 	hdr := BuildDataHeader(remoteTID, remoteSID)
 	pkt := make([]byte, len(hdr)+len(pppFrame))
+
 	copy(pkt, hdr)
 	copy(pkt[len(hdr):], pppFrame)
 

@@ -29,6 +29,7 @@ type Tunnel struct {
 
 	// localTunnelID is our assigned tunnel ID.
 	localTunnelID uint16
+
 	// remoteTunnelID is the peer's assigned tunnel ID.
 	remoteTunnelID uint16
 
@@ -49,6 +50,7 @@ type Tunnel struct {
 
 	// helloInterval is the keepalive timer interval.
 	helloInterval time.Duration
+
 	// lastActivity tracks the last received message time for keepalive.
 	lastActivity time.Time
 
@@ -87,6 +89,7 @@ func newTunnel(localID uint16, peerAddr *net.UDPAddr, sendFunc func([]byte, *net
 				"tunnel_id", localID,
 				"peer", peerAddr,
 			)
+
 			t.mu.Lock()
 			t.state = TunnelDead
 			t.mu.Unlock()
@@ -100,6 +103,7 @@ func newTunnel(localID uint16, peerAddr *net.UDPAddr, sendFunc func([]byte, *net
 func (t *Tunnel) State() byte {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+
 	return t.state
 }
 
@@ -112,6 +116,7 @@ func (t *Tunnel) LocalTunnelID() uint16 {
 func (t *Tunnel) RemoteTunnelID() uint16 {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+
 	return t.remoteTunnelID
 }
 
@@ -138,6 +143,7 @@ func (t *Tunnel) HandleSCCRQ(avps []AVP, hostname string) error {
 		log.Warn("l2tp: SCCRQ missing Assigned Tunnel ID")
 		return errMissingAVP
 	}
+
 	t.remoteTunnelID = remoteTID
 	t.control.SetRemoteTunnelID(remoteTID)
 
@@ -156,6 +162,7 @@ func (t *Tunnel) HandleSCCRQ(avps []AVP, hostname string) error {
 		if len(ver) >= 2 && ver[0] != 1 {
 			log.Warn("l2tp: unsupported protocol version", "version", ver[0], "revision", ver[1])
 			t.sendStopCCN(5, 0, "unsupported version")
+
 			return errUnsupportedVersion
 		}
 	}
@@ -330,6 +337,7 @@ func (t *Tunnel) HandleStopCCN(avps []AVP) {
 func (t *Tunnel) SendStopCCN(resultCode uint16, errorCode uint16, errorMsg string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+
 	t.sendStopCCN(resultCode, errorCode, errorMsg)
 }
 
@@ -369,6 +377,7 @@ func (t *Tunnel) SendCDN(sessionID uint16, resultCode uint16) {
 func (t *Tunnel) GetSession(sessionID uint16) *Session {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+
 	return t.sessions[sessionID]
 }
 
@@ -376,6 +385,7 @@ func (t *Tunnel) GetSession(sessionID uint16) *Session {
 func (t *Tunnel) SessionCount() int {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+
 	return len(t.sessions)
 }
 
@@ -394,11 +404,13 @@ func (t *Tunnel) Run(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
+
 		case <-retransmitTicker.C:
 			if !t.control.CheckRetransmit() {
 				// Tunnel dead from retransmit timeout.
 				return
 			}
+
 		case <-helloTicker.C:
 			t.mu.Lock()
 			if t.state != TunnelEstablished {
@@ -453,9 +465,11 @@ func (t *Tunnel) Close() {
 // The ID value is the Message Type of the response message (2 for SCCRP, 3 for SCCCN).
 func computeL2TPChallengeResponse(msgType byte, sharedSecret, challenge []byte) []byte {
 	h := md5.New()
+
 	h.Write([]byte{msgType})
 	h.Write(sharedSecret)
 	h.Write(challenge)
+
 	return h.Sum(nil)
 }
 

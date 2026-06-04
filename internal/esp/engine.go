@@ -45,15 +45,12 @@ type Engine struct {
 	tunReader    TUNReader
 	tunWriter    TUNWriter
 	udpSender    UDPSender
-	defaultOutSA *SecurityAssociation // Phase 3: simple outbound SA for testing
-	nattPort     int                  // Port for sending ESP over NAT-T (4500)
-	l2tpHandler  L2TPHandler          // L2TP handler for transport-mode packets
-
-	// spd maps destination IP strings (string(IP.To16())) to Outbound SAs.
-	spd map[string]*SecurityAssociation
-
-	mu      sync.Mutex
-	running bool
+	defaultOutSA *SecurityAssociation            // Phase 3: simple outbound SA for testing
+	nattPort     int                             // Port for sending ESP over NAT-T (4500)
+	l2tpHandler  L2TPHandler                     // L2TP handler for transport-mode packets
+	spd          map[string]*SecurityAssociation // SPD maps destination IP strings (string(IP.To16())) to Outbound SAs
+	mu           sync.Mutex
+	running      bool
 }
 
 // EngineConfig holds configuration for the ESP engine.
@@ -131,6 +128,7 @@ func (e *Engine) SetDefaultOutboundSA(sa *SecurityAssociation) {
 func (e *Engine) SetL2TPHandler(h L2TPHandler) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+
 	e.l2tpHandler = h
 	log.Info("L2TP handler registered with ESP engine")
 }
@@ -141,7 +139,6 @@ func (e *Engine) AddOutboundSA(dstIP net.IP, sa *SecurityAssociation) {
 	defer e.mu.Unlock()
 
 	e.spd[string(dstIP.To16())] = sa
-
 	log.Debug("ESP SPD: outbound SA registered", "dst_ip", dstIP.String(), "spi", fmt.Sprintf("0x%08X", sa.SPI))
 }
 
@@ -151,7 +148,6 @@ func (e *Engine) RemoveOutboundSA(dstIP net.IP) {
 	defer e.mu.Unlock()
 
 	delete(e.spd, string(dstIP.To16()))
-
 	log.Debug("ESP SPD: outbound SA removed", "dst_ip", dstIP.String())
 }
 
@@ -197,7 +193,6 @@ func (e *Engine) Start(ctx context.Context) {
 	}
 
 	log.Info("ESP engine started")
-
 	<-ctx.Done()
 
 	wg.Wait()
@@ -297,9 +292,11 @@ func (e *Engine) HandleInboundESP(buf []byte, n int, remoteAddr *net.UDPAddr) {
 		// Transport-mode ESP: inner payload is a UDP datagram.
 		// Check for L2TP (dst port 1701) and route to L2TP handler.
 		e.handleInnerUDP(innerPacket, remoteAddr, hdr.SPI)
+
 	case NextHeaderDummy:
 		// Discard dummy packets (RFC 4303 §2.6).
 		return
+
 	default:
 		// IPv4/IPv6 or other — write to TUN.
 		if e.tunWriter != nil && innerPacket != nil {
@@ -323,6 +320,7 @@ func (e *Engine) handleInnerUDP(udpData []byte, remoteAddr *net.UDPAddr, spi uin
 			"size", len(udpData),
 			"from", remoteAddr,
 		)
+
 		return
 	}
 
@@ -344,6 +342,7 @@ func (e *Engine) handleInnerUDP(udpData []byte, remoteAddr *net.UDPAddr, spi uin
 				"spi", fmt.Sprintf("0x%08X", spi),
 			)
 		}
+
 		return
 	}
 
@@ -366,6 +365,7 @@ func (e *Engine) outboundLoop(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
+
 		default:
 		}
 
@@ -379,6 +379,7 @@ func (e *Engine) outboundLoop(ctx context.Context) {
 			select {
 			case <-ctx.Done():
 				return
+
 			default:
 			}
 
@@ -401,6 +402,7 @@ func (e *Engine) outboundLoop(ctx context.Context) {
 		if dstIP != nil {
 			outSA = e.spd[string(dstIP.To16())]
 		}
+
 		if outSA == nil {
 			outSA = e.defaultOutSA
 		}
@@ -408,6 +410,7 @@ func (e *Engine) outboundLoop(ctx context.Context) {
 
 		if outSA == nil {
 			e.pool.Put(buf)
+
 			log.Debug("no outbound SA configured, dropping packet", "size", n)
 			continue
 		}
@@ -449,8 +452,10 @@ func detectIPVersion(packet []byte) byte {
 	switch version {
 	case 4:
 		return NextHeaderIPv4
+
 	case 6:
 		return NextHeaderIPv6
+
 	default:
 		return NextHeaderIPv4
 	}
@@ -473,7 +478,6 @@ func extractDstIP(packet []byte) net.IP {
 		}
 
 		return net.IP(packet[24:40])
-
 	}
 
 	return nil

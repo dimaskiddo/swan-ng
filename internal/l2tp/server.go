@@ -103,6 +103,7 @@ func NewServer(cfg ServerConfig) *Server {
 		sender:           cfg.Sender,
 		tunWriter:        cfg.TUNWriter,
 	}
+
 	s.nextTunnelID.Store(1)
 	return s
 }
@@ -110,6 +111,7 @@ func NewServer(cfg ServerConfig) *Server {
 // Start begins the L2TP server's background operations.
 func (s *Server) Start(ctx context.Context) {
 	s.ctx = ctx
+
 	log.Info("l2tp: server started",
 		"hostname", s.hostname,
 		"gateway", s.gatewayIP,
@@ -128,6 +130,7 @@ func (s *Server) HandlePacket(data []byte, peerAddr *net.UDPAddr) {
 			"from", peerAddr,
 			"error", err.Error(),
 		)
+
 		return
 	}
 
@@ -157,6 +160,7 @@ func (s *Server) handleControlMessage(hdr *Header, payload []byte, peerAddr *net
 			"tunnel_id", hdr.TunnelID,
 			"from", peerAddr,
 		)
+
 		return
 	}
 
@@ -183,6 +187,7 @@ func (s *Server) handleControlMessage(hdr *Header, payload []byte, peerAddr *net
 			"tunnel", hdr.TunnelID,
 			"error", err.Error(),
 		)
+
 		return
 	}
 
@@ -231,6 +236,7 @@ func (s *Server) handleNewTunnel(hdr *Header, payload []byte, peerAddr *net.UDPA
 			"error", err.Error(),
 			"peer", peerAddr,
 		)
+
 		return
 	}
 
@@ -340,6 +346,7 @@ func (s *Server) handleDataMessage(hdr *Header, payload []byte, peerAddr *net.UD
 			"tunnel_id", hdr.TunnelID,
 			"from", peerAddr,
 		)
+
 		return
 	}
 
@@ -355,6 +362,7 @@ func (s *Server) handleDataMessage(hdr *Header, payload []byte, peerAddr *net.UD
 			"tunnel", hdr.TunnelID,
 			"session", hdr.SessionID,
 		)
+
 		return
 	}
 
@@ -370,11 +378,13 @@ func (s *Server) allocateIP() net.IP {
 	if s.pool == nil {
 		return nil
 	}
+
 	ip, err := s.pool.Allocate()
 	if err != nil {
 		log.Debug("l2tp: IP allocation failed", "error", err.Error())
 		return nil
 	}
+
 	return ip
 }
 
@@ -383,6 +393,7 @@ func (s *Server) releaseIP(ip net.IP) {
 	if s.pool == nil || ip == nil {
 		return
 	}
+
 	if err := s.pool.Release(ip); err != nil {
 		log.Debug("l2tp: IP release failed", "error", err.Error(), "ip", ip)
 	}
@@ -393,6 +404,7 @@ func (s *Server) forwardToTUN(data []byte) {
 	if s.tunWriter == nil || len(data) == 0 {
 		return
 	}
+
 	if err := s.tunWriter.WritePacket(data, len(data)); err != nil {
 		log.Debug("l2tp: TUN write failed", "error", err.Error())
 	}
@@ -422,6 +434,7 @@ func (s *Server) removeTunnel(tunnel *Tunnel) {
 func (s *Server) TunnelCount() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
 	return len(s.tunnels)
 }
 

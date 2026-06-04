@@ -115,14 +115,17 @@ func (h *LCPHandler) BuildConfigureRequest() []byte {
 	// Magic-Number: Type(1) + Length(1) + Magic(4) = 6 bytes.
 	opts = append(opts, LCPOptMagicNumber, 6)
 	m := make([]byte, 4)
+
 	binary.BigEndian.PutUint32(m, h.localMagic)
 	opts = append(opts, m...)
 
 	// Build LCP packet: Code + ID + Length + Options.
 	pktLen := uint16(lcpPacketHeaderLen + len(opts))
 	pkt := make([]byte, pktLen)
+
 	pkt[0] = LCPConfigureRequest
 	pkt[1] = id
+
 	binary.BigEndian.PutUint16(pkt[2:4], pktLen)
 	copy(pkt[4:], opts)
 
@@ -155,19 +158,26 @@ func (h *LCPHandler) Handle(data []byte) []byte {
 	switch code {
 	case LCPConfigureRequest:
 		return h.handleConfigureRequest(id, payload)
+
 	case LCPConfigureAck:
 		return h.handleConfigureAck(id)
+
 	case LCPConfigureNak:
 		return h.handleConfigureNak(id, payload)
+
 	case LCPConfigureReject:
 		return h.handleConfigureReject(id, payload)
+
 	case LCPTerminateRequest:
 		return h.handleTerminateRequest(id)
+
 	case LCPEchoRequest:
 		return h.handleEchoRequest(id, payload)
+
 	case LCPProtocolReject:
 		log.Debug("lcp: received Protocol-Reject", "id", id)
 		return nil
+
 	default:
 		log.Debug("lcp: unknown code", "code", code, "id", id)
 		return nil
@@ -186,8 +196,10 @@ func (h *LCPHandler) handleConfigureRequest(id byte, options []byte) []byte {
 		if offset+lcpOptionHeaderLen > len(options) {
 			break
 		}
+
 		optType := options[offset]
 		optLen := int(options[offset+1])
+
 		if optLen < lcpOptionHeaderLen || offset+optLen > len(options) {
 			break
 		}
@@ -255,6 +267,7 @@ func (h *LCPHandler) handleConfigureRequest(id byte, options []byte) []byte {
 	if len(rejOpts) > 0 {
 		return h.buildResponse(LCPConfigureReject, id, rejOpts)
 	}
+
 	if len(nakOpts) > 0 {
 		return h.buildResponse(LCPConfigureNak, id, nakOpts)
 	}
@@ -288,8 +301,10 @@ func (h *LCPHandler) handleConfigureNak(id byte, options []byte) []byte {
 		if offset+lcpOptionHeaderLen > len(options) {
 			break
 		}
+
 		optType := options[offset]
 		optLen := int(options[offset+1])
+
 		if optLen < lcpOptionHeaderLen || offset+optLen > len(options) {
 			break
 		}
@@ -301,9 +316,11 @@ func (h *LCPHandler) handleConfigureNak(id byte, options []byte) []byte {
 			if optLen >= 4 {
 				h.mru = binary.BigEndian.Uint16(optData[2:4])
 			}
+
 		case LCPOptAuthProto:
 			// Peer doesn't want our auth. We insist on CHAP — resend.
 			log.Debug("lcp: peer nak'd auth, re-requesting CHAP")
+
 		case LCPOptMagicNumber:
 			// Collision — regenerate magic.
 			var magic [4]byte
@@ -328,8 +345,10 @@ func (h *LCPHandler) handleConfigureReject(id byte, options []byte) []byte {
 		if offset+lcpOptionHeaderLen > len(options) {
 			break
 		}
+
 		optType := options[offset]
 		optLen := int(options[offset+1])
+
 		if optLen < lcpOptionHeaderLen || offset+optLen > len(options) {
 			break
 		}
@@ -341,6 +360,7 @@ func (h *LCPHandler) handleConfigureReject(id byte, options []byte) []byte {
 			log.Warn("lcp: peer rejected authentication, session cannot proceed")
 			h.state = LCPStateClosed
 			return h.buildResponse(LCPTerminateRequest, h.nextID, []byte("Authentication required"))
+
 		case LCPOptMagicNumber:
 			log.Debug("lcp: peer rejected magic number, removing")
 			h.localMagic = 0
@@ -355,6 +375,7 @@ func (h *LCPHandler) handleConfigureReject(id byte, options []byte) []byte {
 // handleTerminateRequest processes a peer's Terminate-Request.
 func (h *LCPHandler) handleTerminateRequest(id byte) []byte {
 	h.state = LCPStateClosed
+
 	log.Info("lcp: received Terminate-Request")
 	return h.buildResponse(LCPTerminateAck, id, nil)
 }
@@ -365,6 +386,7 @@ func (h *LCPHandler) handleEchoRequest(id byte, payload []byte) []byte {
 	// Echo-Reply: Code(10) + ID + Length + Magic-Number(4) + Data.
 	// The Magic-Number in the reply is our own.
 	var reply []byte
+
 	magic := make([]byte, 4)
 	binary.BigEndian.PutUint32(magic, h.localMagic)
 	reply = append(reply, magic...)
@@ -381,6 +403,7 @@ func (h *LCPHandler) handleEchoRequest(id byte, payload []byte) []byte {
 func (h *LCPHandler) checkOpened() {
 	if h.ourConfigAcked && h.peerConfigAcked {
 		h.state = LCPStateOpened
+
 		log.Info("lcp: negotiation complete",
 			"mru", h.mru,
 			"local_magic", fmt.Sprintf("0x%08X", h.localMagic),
@@ -393,12 +416,16 @@ func (h *LCPHandler) checkOpened() {
 func (h *LCPHandler) buildResponse(code, id byte, data []byte) []byte {
 	pktLen := uint16(lcpPacketHeaderLen + len(data))
 	pkt := make([]byte, pktLen)
+
 	pkt[0] = code
 	pkt[1] = id
+
 	binary.BigEndian.PutUint16(pkt[2:4], pktLen)
+
 	if len(data) > 0 {
 		copy(pkt[4:], data)
 	}
+
 	return pkt
 }
 
@@ -414,6 +441,7 @@ func (h *LCPHandler) BuildProtocolReject(rejectedProto uint16, rejectedPacket []
 	}
 
 	var data []byte
+
 	proto := make([]byte, 2)
 	binary.BigEndian.PutUint16(proto, rejectedProto)
 	data = append(data, proto...)

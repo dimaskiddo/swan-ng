@@ -160,6 +160,7 @@ func ParseHeader(data []byte) (*Header, []byte, error) {
 		if len(data) < offset+2 {
 			return nil, nil, fmt.Errorf("l2tp: truncated length field")
 		}
+
 		hdr.Length = binary.BigEndian.Uint16(data[offset : offset+2])
 		offset += 2
 
@@ -173,8 +174,10 @@ func ParseHeader(data []byte) (*Header, []byte, error) {
 	if len(data) < offset+4 {
 		return nil, nil, fmt.Errorf("l2tp: truncated tunnel/session ID")
 	}
+
 	hdr.TunnelID = binary.BigEndian.Uint16(data[offset : offset+2])
 	offset += 2
+
 	hdr.SessionID = binary.BigEndian.Uint16(data[offset : offset+2])
 	offset += 2
 
@@ -183,8 +186,10 @@ func ParseHeader(data []byte) (*Header, []byte, error) {
 		if len(data) < offset+4 {
 			return nil, nil, fmt.Errorf("l2tp: truncated Ns/Nr fields")
 		}
+
 		hdr.Ns = binary.BigEndian.Uint16(data[offset : offset+2])
 		offset += 2
+
 		hdr.Nr = binary.BigEndian.Uint16(data[offset : offset+2])
 		offset += 2
 	}
@@ -194,6 +199,7 @@ func ParseHeader(data []byte) (*Header, []byte, error) {
 		if len(data) < offset+2 {
 			return nil, nil, fmt.Errorf("l2tp: truncated offset field")
 		}
+
 		offsetSize := binary.BigEndian.Uint16(data[offset : offset+2])
 		offset += 2 + int(offsetSize)
 	}
@@ -219,15 +225,19 @@ func SerializeHeader(hdr *Header) []byte {
 	if hdr.IsControl {
 		flags |= flagType | flagLength | flagSequence
 	}
+
 	if hdr.HasLength {
 		flags |= flagLength
 	}
+
 	if hdr.HasSequence {
 		flags |= flagSequence
 	}
+
 	if hdr.HasOffset {
 		flags |= flagOffset
 	}
+
 	if hdr.Priority {
 		flags |= flagPriority
 	}
@@ -237,6 +247,7 @@ func SerializeHeader(hdr *Header) []byte {
 	if flags&flagLength != 0 {
 		size += 2 // length
 	}
+
 	size += 4 // tunnel ID + session ID
 	if flags&flagSequence != 0 {
 		size += 4 // Ns + Nr
@@ -256,12 +267,14 @@ func SerializeHeader(hdr *Header) []byte {
 
 	binary.BigEndian.PutUint16(buf[offset:offset+2], hdr.TunnelID)
 	offset += 2
+
 	binary.BigEndian.PutUint16(buf[offset:offset+2], hdr.SessionID)
 	offset += 2
 
 	if flags&flagSequence != 0 {
 		binary.BigEndian.PutUint16(buf[offset:offset+2], hdr.Ns)
 		offset += 2
+
 		binary.BigEndian.PutUint16(buf[offset:offset+2], hdr.Nr)
 	}
 
@@ -283,6 +296,7 @@ func BuildControlHeader(tunnelID, sessionID, ns, nr uint16, payloadLen int) []by
 		Ns:          ns,
 		Nr:          nr,
 	}
+
 	return SerializeHeader(hdr)
 }
 
@@ -294,6 +308,7 @@ func BuildDataHeader(tunnelID, sessionID uint16) []byte {
 		TunnelID:  tunnelID,
 		SessionID: sessionID,
 	}
+
 	return SerializeHeader(hdr)
 }
 
@@ -349,6 +364,7 @@ func ParseAVPs(data []byte) ([]AVP, error) {
 		if avpLen < avpHeaderLen {
 			return nil, fmt.Errorf("l2tp: AVP length %d below minimum %d", avpLen, avpHeaderLen)
 		}
+
 		if avpLen > len(data) {
 			return nil, fmt.Errorf("l2tp: AVP length %d exceeds remaining data %d", avpLen, len(data))
 		}
@@ -381,6 +397,7 @@ func SerializeAVP(avp AVP) []byte {
 	if avp.Mandatory {
 		flagsLen |= avpFlagMandatory
 	}
+
 	if avp.Hidden {
 		flagsLen |= avpFlagHidden
 	}
@@ -402,6 +419,7 @@ func SerializeAVPs(avps []AVP) []byte {
 	for _, avp := range avps {
 		result = append(result, SerializeAVP(avp)...)
 	}
+
 	return result
 }
 
@@ -411,6 +429,7 @@ func SerializeAVPs(avps []AVP) []byte {
 func NewMessageTypeAVP(msgType uint16) AVP {
 	val := make([]byte, 2)
 	binary.BigEndian.PutUint16(val, msgType)
+
 	return AVP{Mandatory: true, AttrType: AVPMessageType, Value: val}
 }
 
@@ -418,6 +437,7 @@ func NewMessageTypeAVP(msgType uint16) AVP {
 func NewAssignedTunnelIDAVP(tunnelID uint16) AVP {
 	val := make([]byte, 2)
 	binary.BigEndian.PutUint16(val, tunnelID)
+
 	return AVP{Mandatory: true, AttrType: AVPAssignedTunnelID, Value: val}
 }
 
@@ -425,6 +445,7 @@ func NewAssignedTunnelIDAVP(tunnelID uint16) AVP {
 func NewAssignedSessionIDAVP(sessionID uint16) AVP {
 	val := make([]byte, 2)
 	binary.BigEndian.PutUint16(val, sessionID)
+
 	return AVP{Mandatory: true, AttrType: AVPAssignedSessionID, Value: val}
 }
 
@@ -449,6 +470,7 @@ func NewVendorNameAVP(vendor string) AVP {
 func NewFramingCapAVP() AVP {
 	val := make([]byte, 4)
 	binary.BigEndian.PutUint32(val, 0x00000003) // A + S
+
 	return AVP{Mandatory: true, AttrType: AVPFramingCap, Value: val}
 }
 
@@ -457,6 +479,7 @@ func NewFramingCapAVP() AVP {
 func NewBearerCapAVP() AVP {
 	val := make([]byte, 4)
 	binary.BigEndian.PutUint32(val, 0x00000003) // A + D
+
 	return AVP{Mandatory: true, AttrType: AVPBearerCap, Value: val}
 }
 
@@ -464,6 +487,7 @@ func NewBearerCapAVP() AVP {
 func NewReceiveWindowSizeAVP(windowSize uint16) AVP {
 	val := make([]byte, 2)
 	binary.BigEndian.PutUint16(val, windowSize)
+
 	return AVP{Mandatory: true, AttrType: AVPReceiveWindowSize, Value: val}
 }
 
@@ -471,6 +495,7 @@ func NewReceiveWindowSizeAVP(windowSize uint16) AVP {
 func NewFirmwareRevisionAVP(revision uint16) AVP {
 	val := make([]byte, 2)
 	binary.BigEndian.PutUint16(val, revision)
+
 	return AVP{AttrType: AVPFirmwareRevision, Value: val}
 }
 
@@ -490,16 +515,19 @@ func NewResultCodeAVP(resultCode uint16, errorCode uint16, errorMsg string) AVP 
 	if errorCode != 0 || errorMsg != "" {
 		size += 2 // error code
 	}
-	size += len(errorMsg)
 
+	size += len(errorMsg)
 	val := make([]byte, size)
+
 	binary.BigEndian.PutUint16(val[0:2], resultCode)
+
 	if errorCode != 0 || errorMsg != "" {
 		binary.BigEndian.PutUint16(val[2:4], errorCode)
 		if errorMsg != "" {
 			copy(val[4:], errorMsg)
 		}
 	}
+
 	return AVP{Mandatory: true, AttrType: AVPResultCode, Value: val}
 }
 
@@ -507,6 +535,7 @@ func NewResultCodeAVP(resultCode uint16, errorCode uint16, errorMsg string) AVP 
 func NewCallSerialNumberAVP(serial uint32) AVP {
 	val := make([]byte, 4)
 	binary.BigEndian.PutUint32(val, serial)
+
 	return AVP{Mandatory: true, AttrType: AVPCallSerialNumber, Value: val}
 }
 
@@ -517,11 +546,14 @@ func NewFramingTypeAVP(async, sync bool) AVP {
 	if async {
 		v |= 0x00000002
 	}
+
 	if sync {
 		v |= 0x00000001
 	}
+
 	val := make([]byte, 4)
 	binary.BigEndian.PutUint32(val, v)
+
 	return AVP{Mandatory: true, AttrType: AVPFramingType, Value: val}
 }
 
@@ -529,6 +561,7 @@ func NewFramingTypeAVP(async, sync bool) AVP {
 func NewTxConnectSpeedAVP(bps uint32) AVP {
 	val := make([]byte, 4)
 	binary.BigEndian.PutUint32(val, bps)
+
 	return AVP{Mandatory: true, AttrType: AVPTxConnectSpeed, Value: val}
 }
 
@@ -540,6 +573,7 @@ func GetMessageType(avps []AVP) uint16 {
 			return binary.BigEndian.Uint16(avp.Value)
 		}
 	}
+
 	return 0
 }
 
@@ -551,6 +585,7 @@ func GetAVPUint16(avps []AVP, attrType uint16) (uint16, bool) {
 			return binary.BigEndian.Uint16(avp.Value), true
 		}
 	}
+
 	return 0, false
 }
 
@@ -562,6 +597,7 @@ func GetAVPUint32(avps []AVP, attrType uint16) (uint32, bool) {
 			return binary.BigEndian.Uint32(avp.Value), true
 		}
 	}
+
 	return 0, false
 }
 
@@ -573,6 +609,7 @@ func GetAVPBytes(avps []AVP, attrType uint16) ([]byte, bool) {
 			return avp.Value, true
 		}
 	}
+
 	return nil, false
 }
 
@@ -583,5 +620,6 @@ func GetAVPString(avps []AVP, attrType uint16) (string, bool) {
 	if !ok {
 		return "", false
 	}
+
 	return string(v), true
 }

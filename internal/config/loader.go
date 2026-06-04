@@ -223,8 +223,8 @@ func applyDefaultsAndValidate(cfg *Config) error {
 		if err != nil {
 			return fmt.Errorf("server.hostname is not set and unable to detect operating system hostname: %w", err)
 		}
-		cfg.Server.Hostname = h
 
+		cfg.Server.Hostname = h
 		log.Info("server.hostname is not set, using operating system hostname", "hostname", h)
 	}
 	if cfg.Server.Listen == "" {

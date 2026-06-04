@@ -138,6 +138,7 @@ func BuildNonce(salt []byte, iv []byte) ([]byte, error) {
 	}
 
 	nonce := make([]byte, 12)
+
 	copy(nonce[:4], salt)
 	copy(nonce[4:], iv)
 
@@ -148,6 +149,7 @@ func BuildNonce(salt []byte, iv []byte) ([]byte, error) {
 // in big-endian order.
 func SequenceToIV(seqNum uint64) []byte {
 	iv := make([]byte, 8)
+
 	iv[0] = byte(seqNum >> 56)
 	iv[1] = byte(seqNum >> 48)
 	iv[2] = byte(seqNum >> 40)

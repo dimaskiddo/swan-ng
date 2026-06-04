@@ -26,8 +26,7 @@ type ESPHeader struct {
 // Returns error if buffer is too short.
 func ParseHeader(buf []byte) (ESPHeader, error) {
 	if len(buf) < ESPHeaderLen {
-		return ESPHeader{}, fmt.Errorf("buffer too short for ESP header: need %d, got %d",
-			ESPHeaderLen, len(buf))
+		return ESPHeader{}, fmt.Errorf("buffer too short for ESP header: need %d, got %d", ESPHeaderLen, len(buf))
 	}
 
 	return ESPHeader{
@@ -144,6 +143,7 @@ func Decrypt(sa *SecurityAssociation, espPacket []byte) ([]byte, byte, error) {
 				"spi", fmt.Sprintf("0x%08X", hdr.SPI),
 				"seq", hdr.SeqNum,
 			)
+
 			return nil, 0, fmt.Errorf("anti-replay check failed for SPI 0x%08X seq %d", hdr.SPI, hdr.SeqNum)
 		}
 	}

@@ -79,12 +79,15 @@ func NewIPCPHandler(assignedIP, gatewayIP, dns1, dns2 net.IP) *IPCPHandler {
 		primaryDNS:   dns1,
 		secondaryDNS: dns2,
 	}
+
 	if h.primaryDNS == nil {
 		h.primaryDNS = defaultPrimaryDNS
 	}
+
 	if h.secondaryDNS == nil {
 		h.secondaryDNS = defaultSecondaryDNS
 	}
+
 	return h
 }
 
@@ -115,11 +118,12 @@ func (h *IPCPHandler) BuildConfigureRequest() []byte {
 	}
 
 	opts := []byte{IPCPOptIPAddress, 6, gw[0], gw[1], gw[2], gw[3]}
-
 	pktLen := uint16(ipcpPacketHeaderLen + len(opts))
 	pkt := make([]byte, pktLen)
+
 	pkt[0] = IPCPConfigureRequest
 	pkt[1] = h.nextID
+
 	binary.BigEndian.PutUint16(pkt[2:4], pktLen)
 	copy(pkt[4:], opts)
 
@@ -147,13 +151,17 @@ func (h *IPCPHandler) Handle(data []byte) []byte {
 	switch code {
 	case IPCPConfigureRequest:
 		return h.handleConfigureRequest(id, payload)
+
 	case IPCPConfigureAck:
 		return h.handleConfigureAck(id)
+
 	case IPCPConfigureNak:
 		return h.handleConfigureNak(id, payload)
+
 	case IPCPConfigureReject:
 		log.Debug("ipcp: peer rejected our options", "id", id)
 		return nil
+
 	default:
 		log.Debug("ipcp: unknown code", "code", code)
 		return nil
@@ -172,8 +180,10 @@ func (h *IPCPHandler) handleConfigureRequest(id byte, options []byte) []byte {
 		if offset+ipcpOptionHeaderLen > len(options) {
 			break
 		}
+
 		optType := options[offset]
 		optLen := int(options[offset+1])
+
 		if optLen < ipcpOptionHeaderLen || offset+optLen > len(options) {
 			break
 		}
@@ -188,9 +198,9 @@ func (h *IPCPHandler) handleConfigureRequest(id byte, options []byte) []byte {
 
 				if requestedIP.Equal(zeroIP) || !requestedIP.Equal(h.assignedIP) {
 					// Nak with the assigned IP.
-					nak := []byte{IPCPOptIPAddress, 6,
-						assignedTo4[0], assignedTo4[1], assignedTo4[2], assignedTo4[3]}
+					nak := []byte{IPCPOptIPAddress, 6, assignedTo4[0], assignedTo4[1], assignedTo4[2], assignedTo4[3]}
 					nakOpts = append(nakOpts, nak...)
+
 					log.Debug("ipcp: nak'ing IP request",
 						"requested", requestedIP,
 						"assigning", h.assignedIP,
@@ -209,8 +219,7 @@ func (h *IPCPHandler) handleConfigureRequest(id byte, options []byte) []byte {
 				dns1To4 := h.primaryDNS.To4()
 
 				if requestedDNS.Equal(zeroIP) || !requestedDNS.Equal(h.primaryDNS) {
-					nak := []byte{IPCPOptPrimaryDNS, 6,
-						dns1To4[0], dns1To4[1], dns1To4[2], dns1To4[3]}
+					nak := []byte{IPCPOptPrimaryDNS, 6, dns1To4[0], dns1To4[1], dns1To4[2], dns1To4[3]}
 					nakOpts = append(nakOpts, nak...)
 				} else {
 					ackOpts = append(ackOpts, optData...)
@@ -225,8 +234,7 @@ func (h *IPCPHandler) handleConfigureRequest(id byte, options []byte) []byte {
 				dns2To4 := h.secondaryDNS.To4()
 
 				if requestedDNS.Equal(zeroIP) || !requestedDNS.Equal(h.secondaryDNS) {
-					nak := []byte{IPCPOptSecondaryDNS, 6,
-						dns2To4[0], dns2To4[1], dns2To4[2], dns2To4[3]}
+					nak := []byte{IPCPOptSecondaryDNS, 6, dns2To4[0], dns2To4[1], dns2To4[2], dns2To4[3]}
 					nakOpts = append(nakOpts, nak...)
 				} else {
 					ackOpts = append(ackOpts, optData...)
@@ -248,6 +256,7 @@ func (h *IPCPHandler) handleConfigureRequest(id byte, options []byte) []byte {
 	if len(rejOpts) > 0 {
 		return h.buildResponse(IPCPConfigureReject, id, rejOpts)
 	}
+
 	if len(nakOpts) > 0 {
 		return h.buildResponse(IPCPConfigureNak, id, nakOpts)
 	}
@@ -286,8 +295,10 @@ func (h *IPCPHandler) handleConfigureNak(id byte, options []byte) []byte {
 		if offset+ipcpOptionHeaderLen > len(options) {
 			break
 		}
+
 		optType := options[offset]
 		optLen := int(options[offset+1])
+
 		if optLen < ipcpOptionHeaderLen || offset+optLen > len(options) {
 			break
 		}
@@ -308,6 +319,7 @@ func (h *IPCPHandler) handleConfigureNak(id byte, options []byte) []byte {
 func (h *IPCPHandler) checkOpened() {
 	if h.ourConfigAcked && h.peerConfigAcked {
 		h.opened = true
+
 		log.Info("ipcp: negotiation complete",
 			"peer_ip", h.assignedIP,
 			"gateway", h.gatewayIP,
@@ -320,11 +332,15 @@ func (h *IPCPHandler) checkOpened() {
 func (h *IPCPHandler) buildResponse(code, id byte, data []byte) []byte {
 	pktLen := uint16(ipcpPacketHeaderLen + len(data))
 	pkt := make([]byte, pktLen)
+
 	pkt[0] = code
 	pkt[1] = id
+
 	binary.BigEndian.PutUint16(pkt[2:4], pktLen)
+
 	if len(data) > 0 {
 		copy(pkt[4:], data)
 	}
+
 	return pkt
 }

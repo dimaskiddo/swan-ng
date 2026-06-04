@@ -76,9 +76,11 @@ func NewControlChannel(sendFunc func([]byte), onTimeout func()) *ControlChannel 
 func (cc *ControlChannel) SetPeerWindow(w uint16) {
 	cc.mu.Lock()
 	defer cc.mu.Unlock()
+
 	if w == 0 {
 		w = defaultReceiveWindow
 	}
+
 	cc.peerRecvWindow = w
 }
 
@@ -86,6 +88,7 @@ func (cc *ControlChannel) SetPeerWindow(w uint16) {
 func (cc *ControlChannel) SetRemoteTunnelID(id uint16) {
 	cc.mu.Lock()
 	defer cc.mu.Unlock()
+
 	cc.remoteTunnelID = id
 }
 
@@ -93,6 +96,7 @@ func (cc *ControlChannel) SetRemoteTunnelID(id uint16) {
 func (cc *ControlChannel) SendNs() uint16 {
 	cc.mu.Lock()
 	defer cc.mu.Unlock()
+
 	return cc.sendNs
 }
 
@@ -100,6 +104,7 @@ func (cc *ControlChannel) SendNs() uint16 {
 func (cc *ControlChannel) RecvNr() uint16 {
 	cc.mu.Lock()
 	defer cc.mu.Unlock()
+
 	return cc.recvNr
 }
 
@@ -116,6 +121,7 @@ func (cc *ControlChannel) Send(avpPayload []byte) {
 	// Build complete control message: header + AVP payload.
 	hdr := BuildControlHeader(cc.remoteTunnelID, 0, ns, nr, len(avpPayload))
 	msg := make([]byte, len(hdr)+len(avpPayload))
+
 	copy(msg, hdr)
 	copy(msg[len(hdr):], avpPayload)
 
@@ -178,6 +184,7 @@ func (cc *ControlChannel) Receive(ns, nr uint16, isZLB bool) bool {
 			"expected_ns", cc.recvNr,
 			"received_ns", ns,
 		)
+
 		return false
 	}
 
@@ -195,6 +202,7 @@ func (cc *ControlChannel) acknowledgeUpTo(nr uint16) {
 			remaining = append(remaining, pm)
 		}
 	}
+
 	acked := len(cc.pending) - len(remaining)
 	cc.pending = remaining
 
@@ -224,11 +232,14 @@ func (cc *ControlChannel) CheckRetransmit() bool {
 				"ns", pm.ns,
 				"retries", pm.retries,
 			)
+
 			// Unlock before calling onTimeout to prevent deadlock.
 			cc.mu.Unlock()
+
 			if cc.onTimeout != nil {
 				cc.onTimeout()
 			}
+
 			return false
 		}
 
@@ -237,12 +248,14 @@ func (cc *ControlChannel) CheckRetransmit() bool {
 		if pm.interval > maxRetransmitInterval {
 			pm.interval = maxRetransmitInterval
 		}
+
 		pm.nextRetransmit = now.Add(pm.interval)
 
 		// Update Nr in the retransmitted message header.
 		// Nr field is at offset 10 in a standard control header.
 		if len(pm.data) >= 12 {
 			nr := cc.recvNr
+
 			pm.data[10] = byte(nr >> 8)
 			pm.data[11] = byte(nr)
 		}
@@ -263,6 +276,7 @@ func (cc *ControlChannel) CheckRetransmit() bool {
 func (cc *ControlChannel) PendingCount() int {
 	cc.mu.Lock()
 	defer cc.mu.Unlock()
+
 	return len(cc.pending)
 }
 

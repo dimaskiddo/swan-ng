@@ -177,9 +177,7 @@ type GenericPayloadHeader struct {
 // ParseGenericPayloadHeader parses the 4-byte generic payload header.
 func ParseGenericPayloadHeader(buf []byte) (GenericPayloadHeader, error) {
 	if len(buf) < PayloadHeaderLen {
-		return GenericPayloadHeader{}, fmt.Errorf(
-			"buffer too short for payload header: need %d, got %d",
-			PayloadHeaderLen, len(buf))
+		return GenericPayloadHeader{}, fmt.Errorf("buffer too short for payload header: need %d, got %d", PayloadHeaderLen, len(buf))
 	}
 
 	return GenericPayloadHeader{
@@ -192,15 +190,16 @@ func ParseGenericPayloadHeader(buf []byte) (GenericPayloadHeader, error) {
 // Marshal writes the generic payload header into buf.
 func (g GenericPayloadHeader) Marshal(buf []byte) error {
 	if len(buf) < PayloadHeaderLen {
-		return fmt.Errorf("buffer too short for payload header marshal: need %d, got %d",
-			PayloadHeaderLen, len(buf))
+		return fmt.Errorf("buffer too short for payload header marshal: need %d, got %d", PayloadHeaderLen, len(buf))
 	}
 
 	buf[0] = byte(g.NextPayload)
 	buf[1] = 0
+
 	if g.Critical {
 		buf[1] = 0x80
 	}
+
 	binary.BigEndian.PutUint16(buf[2:4], g.Length)
 
 	return nil
@@ -220,7 +219,9 @@ type RawPayload struct {
 }
 
 // Type returns the payload type.
-func (r *RawPayload) Type() PayloadType { return r.PayloadType }
+func (r *RawPayload) Type() PayloadType {
+	return r.PayloadType
+}
 
 // Marshal serializes the raw payload with its generic header.
 func (r *RawPayload) Marshal() ([]byte, error) {
@@ -236,6 +237,7 @@ func (r *RawPayload) Marshal() ([]byte, error) {
 	}
 
 	copy(buf[PayloadHeaderLen:], r.Data)
+
 	return buf, nil
 }
 
@@ -290,14 +292,12 @@ func ParsePayloadChain(buf []byte, firstPayload PayloadType, isV2 bool) (Payload
 		}
 
 		if gph.Length < PayloadHeaderLen {
-			return chain, fmt.Errorf("invalid payload length %d at offset %d (min %d)",
-				gph.Length, offset, PayloadHeaderLen)
+			return chain, fmt.Errorf("invalid payload length %d at offset %d (min %d)", gph.Length, offset, PayloadHeaderLen)
 		}
 
 		endOffset := offset + int(gph.Length)
 		if endOffset > len(buf) {
-			return chain, fmt.Errorf("payload at offset %d extends beyond buffer (need %d, have %d)",
-				offset, endOffset, len(buf))
+			return chain, fmt.Errorf("payload at offset %d extends beyond buffer (need %d, have %d)", offset, endOffset, len(buf))
 		}
 
 		// Extract payload body (after generic header).

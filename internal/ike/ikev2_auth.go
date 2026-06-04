@@ -264,15 +264,13 @@ func (h *IKEv2Handler) HandleCreateChildSA(sess *IKEv2Session, msg *Message) (*M
 	if isIKERekey {
 		// IKE SA rekeying — defer to future phase.
 		log.Info("IKEv2 CREATE_CHILD_SA: IKE rekey requested, not yet supported")
-		return h.buildEncryptedNotify(sess, msg.Header.MessageID,
-			ExchangeCreateChildSA, NotifyNoAdditionalSAS, nil)
+		return h.buildEncryptedNotify(sess, msg.Header.MessageID, ExchangeCreateChildSA, NotifyNoAdditionalSAS, nil)
 	}
 
 	// New Child SA creation.
 	childSelected, childProp, err := SelectProposal(h.defaultChildProposals, saPayload)
 	if err != nil {
-		return h.buildEncryptedNotify(sess, msg.Header.MessageID,
-			ExchangeCreateChildSA, NotifyNoProposalChosen, nil)
+		return h.buildEncryptedNotify(sess, msg.Header.MessageID, ExchangeCreateChildSA, NotifyNoProposalChosen, nil)
 	}
 
 	// Generate responder nonce.
@@ -356,9 +354,7 @@ func (h *IKEv2Handler) HandleCreateChildSA(sess *IKEv2Session, msg *Message) (*M
 
 // ---- Internal Helpers ----
 
-func (h *IKEv2Handler) verifyAuth(
-	sess *IKEv2Session, auth *AUTHPayload, id *IDPayload,
-) error {
+func (h *IKEv2Handler) verifyAuth(sess *IKEv2Session, auth *AUTHPayload, id *IDPayload) error {
 	switch auth.Method {
 	case AuthSharedKey:
 		expected, err := ComputeIKEv2AuthPSK(sess.PRF, sess.PSK, sess.InitReqBytes, sess.NonceR, sess.Keys.SK_pi, id)

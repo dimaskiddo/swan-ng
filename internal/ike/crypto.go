@@ -58,7 +58,9 @@ type modpGroup struct {
 	generator *big.Int
 }
 
-func (g *modpGroup) ID() uint16 { return g.id }
+func (g *modpGroup) ID() uint16 {
+	return g.id
+}
 
 func (g *modpGroup) PublicKeySize() int {
 	return (g.prime.BitLen() + 7) / 8
@@ -67,6 +69,7 @@ func (g *modpGroup) PublicKeySize() int {
 func (g *modpGroup) GenerateKeypair() (privateKey, publicKey []byte, err error) {
 	// Private key: random value in [2, p-2].
 	pMinus2 := new(big.Int).Sub(g.prime, big.NewInt(2))
+
 	privInt, err := rand.Int(rand.Reader, pMinus2)
 	if err != nil {
 		return nil, nil, fmt.Errorf("generating DH private key for group %d: %w", g.id, err)
@@ -109,7 +112,9 @@ type ecpGroup struct {
 	curve ecdh.Curve
 }
 
-func (g *ecpGroup) ID() uint16 { return g.id }
+func (g *ecpGroup) ID() uint16 {
+	return g.id
+}
 
 func (g *ecpGroup) PublicKeySize() int {
 	// Uncompressed point: 1 (0x04) + 2*coordSize.
@@ -154,6 +159,7 @@ func (g *ecpGroup) ComputeSharedSecret(privateKey, peerPublic []byte) ([]byte, e
 	// Add 0x04 prefix for crypto/ecdh uncompressed format.
 	uncompressed := make([]byte, 1+len(peerPublic))
 	uncompressed[0] = 0x04
+
 	copy(uncompressed[1:], peerPublic)
 
 	peerKey, err := g.curve.NewPublicKey(uncompressed)
@@ -214,6 +220,7 @@ func (p *hmacPRF) OutputSize() int { return p.outSize }
 func (p *hmacPRF) Compute(key, data []byte) []byte {
 	h := hmac.New(p.hashFunc, key)
 	h.Write(data)
+
 	return h.Sum(nil)
 }
 
@@ -259,14 +266,24 @@ type hmacIntegrity struct {
 	truncLen int
 }
 
-func (i *hmacIntegrity) ID() uint16      { return i.id }
-func (i *hmacIntegrity) KeySize() int    { return i.keySize }
-func (i *hmacIntegrity) OutputSize() int { return i.truncLen }
+func (i *hmacIntegrity) ID() uint16 {
+	return i.id
+}
+
+func (i *hmacIntegrity) KeySize() int {
+	return i.keySize
+}
+
+func (i *hmacIntegrity) OutputSize() int {
+	return i.truncLen
+}
 
 func (i *hmacIntegrity) Compute(key, data []byte) []byte {
 	h := hmac.New(i.hashFunc, key)
+
 	h.Write(data)
 	full := h.Sum(nil)
+
 	return full[:i.truncLen]
 }
 
@@ -296,6 +313,7 @@ func NewIKEEncryptor(id uint16, keyLen uint16) (IKEEncryptor, error) {
 		if ks == 0 {
 			ks = 16 // Default AES-128
 		}
+
 		return &aesCBCEncryptor{encID: id, keySize: ks}, nil
 
 	case EncrAES_GCM_16:
@@ -303,6 +321,7 @@ func NewIKEEncryptor(id uint16, keyLen uint16) (IKEEncryptor, error) {
 		if ks == 0 {
 			ks = 32 // Default AES-256
 		}
+
 		return &aesGCMEncryptor{encID: id, keySize: ks}, nil
 
 	case Encr3DES:
@@ -320,11 +339,25 @@ type aesCBCEncryptor struct {
 	keySize int
 }
 
-func (e *aesCBCEncryptor) ID() uint16     { return e.encID }
-func (e *aesCBCEncryptor) KeySize() int   { return e.keySize }
-func (e *aesCBCEncryptor) IVSize() int    { return aes.BlockSize } // 16 bytes
-func (e *aesCBCEncryptor) BlockSize() int { return aes.BlockSize }
-func (e *aesCBCEncryptor) IsAEAD() bool   { return false }
+func (e *aesCBCEncryptor) ID() uint16 {
+	return e.encID
+}
+
+func (e *aesCBCEncryptor) KeySize() int {
+	return e.keySize
+}
+
+func (e *aesCBCEncryptor) IVSize() int {
+	return aes.BlockSize
+}
+
+func (e *aesCBCEncryptor) BlockSize() int {
+	return aes.BlockSize
+}
+
+func (e *aesCBCEncryptor) IsAEAD() bool {
+	return false
+}
 
 func (e *aesCBCEncryptor) Encrypt(key, iv, plaintext, _ []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
@@ -335,12 +368,15 @@ func (e *aesCBCEncryptor) Encrypt(key, iv, plaintext, _ []byte) ([]byte, error) 
 	// PKCS#7 padding.
 	padLen := aes.BlockSize - (len(plaintext) % aes.BlockSize)
 	padded := make([]byte, len(plaintext)+padLen)
+
 	copy(padded, plaintext)
+
 	for i := len(plaintext); i < len(padded); i++ {
 		padded[i] = byte(padLen)
 	}
 
 	ciphertext := make([]byte, len(padded))
+
 	mode := cipher.NewCBCEncrypter(block, iv)
 	mode.CryptBlocks(ciphertext, padded)
 
@@ -358,6 +394,7 @@ func (e *aesCBCEncryptor) Decrypt(key, iv, ciphertext, _ []byte) ([]byte, error)
 	}
 
 	plaintext := make([]byte, len(ciphertext))
+
 	mode := cipher.NewCBCDecrypter(block, iv)
 	mode.CryptBlocks(plaintext, ciphertext)
 
@@ -387,11 +424,25 @@ type aesGCMEncryptor struct {
 	keySize int
 }
 
-func (e *aesGCMEncryptor) ID() uint16     { return e.encID }
-func (e *aesGCMEncryptor) KeySize() int   { return e.keySize }
-func (e *aesGCMEncryptor) IVSize() int    { return 8 } // 8-byte IV for IKE AES-GCM
-func (e *aesGCMEncryptor) BlockSize() int { return 1 } // Stream cipher, no padding needed
-func (e *aesGCMEncryptor) IsAEAD() bool   { return true }
+func (e *aesGCMEncryptor) ID() uint16 {
+	return e.encID
+}
+
+func (e *aesGCMEncryptor) KeySize() int {
+	return e.keySize
+}
+
+func (e *aesGCMEncryptor) IVSize() int {
+	return 8
+}
+
+func (e *aesGCMEncryptor) BlockSize() int {
+	return 1
+}
+
+func (e *aesGCMEncryptor) IsAEAD() bool {
+	return true
+}
 
 func (e *aesGCMEncryptor) Encrypt(key, iv, plaintext, aad []byte) ([]byte, error) {
 	// IKE AES-GCM key material: first keySize bytes are the key,
@@ -399,6 +450,7 @@ func (e *aesGCMEncryptor) Encrypt(key, iv, plaintext, aad []byte) ([]byte, error
 	if len(key) < e.keySize+4 {
 		return nil, fmt.Errorf("AES-GCM key too short: need %d, got %d", e.keySize+4, len(key))
 	}
+
 	aesKey := key[:e.keySize]
 	salt := key[e.keySize : e.keySize+4]
 
@@ -414,6 +466,7 @@ func (e *aesGCMEncryptor) Encrypt(key, iv, plaintext, aad []byte) ([]byte, error
 
 	// Nonce: salt(4) || IV(8) = 12 bytes.
 	nonce := make([]byte, 12)
+
 	copy(nonce[:4], salt)
 	copy(nonce[4:], iv)
 
@@ -425,6 +478,7 @@ func (e *aesGCMEncryptor) Decrypt(key, iv, ciphertext, aad []byte) ([]byte, erro
 	if len(key) < e.keySize+4 {
 		return nil, fmt.Errorf("AES-GCM key too short: need %d, got %d", e.keySize+4, len(key))
 	}
+
 	aesKey := key[:e.keySize]
 	salt := key[e.keySize : e.keySize+4]
 
@@ -439,6 +493,7 @@ func (e *aesGCMEncryptor) Decrypt(key, iv, ciphertext, aad []byte) ([]byte, erro
 	}
 
 	nonce := make([]byte, 12)
+
 	copy(nonce[:4], salt)
 	copy(nonce[4:], iv)
 
@@ -501,6 +556,7 @@ func GenerateIKESPI() ([8]byte, error) {
 		if _, err := rand.Read(spi[:]); err != nil {
 			return spi, fmt.Errorf("generating IKE SPI: %w", err)
 		}
+
 		// Ensure non-zero.
 		nonZero := false
 		for _, b := range spi {

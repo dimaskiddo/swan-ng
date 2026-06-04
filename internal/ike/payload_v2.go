@@ -162,7 +162,10 @@ type KEPayload struct {
 	Data    []byte // Public DH value
 }
 
-func (p *KEPayload) Type() PayloadType { return PayloadKE }
+func (p *KEPayload) Type() PayloadType {
+	return PayloadKE
+}
+
 func (p *KEPayload) Marshal() ([]byte, error) {
 	body := make([]byte, 4+len(p.Data))
 	binary.BigEndian.PutUint16(body[0:2], p.DHGroup)
@@ -178,7 +181,10 @@ type NoncePayload struct {
 	NonceData []byte // 16-256 bytes per RFC 7296
 }
 
-func (p *NoncePayload) Type() PayloadType { return PayloadNonce }
+func (p *NoncePayload) Type() PayloadType {
+	return PayloadNonce
+}
+
 func (p *NoncePayload) Marshal() ([]byte, error) {
 	return marshalWithHeader(p.Type(), p.NonceData), nil
 }
@@ -214,11 +220,16 @@ type CERTPayload struct {
 	Data     []byte // Certificate data
 }
 
-func (p *CERTPayload) Type() PayloadType { return PayloadCERT }
+func (p *CERTPayload) Type() PayloadType {
+	return PayloadCERT
+}
+
 func (p *CERTPayload) Marshal() ([]byte, error) {
 	body := make([]byte, 1+len(p.Data))
 	body[0] = byte(p.Encoding)
+
 	copy(body[1:], p.Data)
+
 	return marshalWithHeader(p.Type(), body), nil
 }
 
@@ -228,7 +239,10 @@ type CERTREQPayload struct {
 	Data     []byte // Certification authority data
 }
 
-func (p *CERTREQPayload) Type() PayloadType { return PayloadCERTREQ }
+func (p *CERTREQPayload) Type() PayloadType {
+	return PayloadCERTREQ
+}
+
 func (p *CERTREQPayload) Marshal() ([]byte, error) {
 	body := make([]byte, 1+len(p.Data))
 	body[0] = byte(p.Encoding)
@@ -244,7 +258,10 @@ type AUTHPayload struct {
 	Data   []byte // Authentication data
 }
 
-func (p *AUTHPayload) Type() PayloadType { return PayloadAUTH }
+func (p *AUTHPayload) Type() PayloadType {
+	return PayloadAUTH
+}
+
 func (p *AUTHPayload) Marshal() ([]byte, error) {
 	body := make([]byte, 4+len(p.Data))
 	body[0] = byte(p.Method)
@@ -264,11 +281,15 @@ type NotifyPayload struct {
 	NotifyData    []byte
 }
 
-func (p *NotifyPayload) Type() PayloadType { return PayloadNotify }
+func (p *NotifyPayload) Type() PayloadType {
+	return PayloadNotify
+}
+
 func (p *NotifyPayload) Marshal() ([]byte, error) {
 	body := make([]byte, 4+len(p.SPI)+len(p.NotifyData))
 	body[0] = byte(p.ProtocolID)
 	body[1] = byte(len(p.SPI))
+
 	binary.BigEndian.PutUint16(body[2:4], uint16(p.NotifyMsgType))
 
 	copy(body[4:], p.SPI)
@@ -284,11 +305,15 @@ type DeletePayload struct {
 	SPIs       [][]byte
 }
 
-func (p *DeletePayload) Type() PayloadType { return PayloadDelete }
+func (p *DeletePayload) Type() PayloadType {
+	return PayloadDelete
+}
+
 func (p *DeletePayload) Marshal() ([]byte, error) {
 	body := make([]byte, 4+len(p.SPIs)*int(p.SPISize))
 	body[0] = byte(p.ProtocolID)
 	body[1] = p.SPISize
+
 	binary.BigEndian.PutUint16(body[2:4], uint16(len(p.SPIs)))
 	offset := 4
 
@@ -305,7 +330,10 @@ type VendorIDPayload struct {
 	VendorData []byte
 }
 
-func (p *VendorIDPayload) Type() PayloadType { return PayloadVendorID }
+func (p *VendorIDPayload) Type() PayloadType {
+	return PayloadVendorID
+}
+
 func (p *VendorIDPayload) Marshal() ([]byte, error) {
 	return marshalWithHeader(p.Type(), p.VendorData), nil
 }
@@ -343,11 +371,14 @@ func (p *TSPayload) Marshal() ([]byte, error) {
 		tsBuf := make([]byte, tsLen)
 		tsBuf[0] = byte(ts.TSType)
 		tsBuf[1] = ts.IPProtoID
+
 		binary.BigEndian.PutUint16(tsBuf[2:4], uint16(tsLen))
 		binary.BigEndian.PutUint16(tsBuf[4:6], ts.StartPort)
 		binary.BigEndian.PutUint16(tsBuf[6:8], ts.EndPort)
+
 		copy(tsBuf[8:], ts.StartAddr)
 		copy(tsBuf[8+addrLen:], ts.EndAddr)
+
 		selectorBytes = append(selectorBytes, tsBuf...)
 	}
 
@@ -364,7 +395,10 @@ type SKPayload struct {
 	EncryptedData []byte // IV + ciphertext + ICV
 }
 
-func (p *SKPayload) Type() PayloadType { return PayloadSK }
+func (p *SKPayload) Type() PayloadType {
+	return PayloadSK
+}
+
 func (p *SKPayload) Marshal() ([]byte, error) {
 	return marshalWithHeader(p.Type(), p.EncryptedData), nil
 }
@@ -381,19 +415,25 @@ type CPPayload struct {
 	Attributes []ConfigAttribute
 }
 
-func (p *CPPayload) Type() PayloadType { return PayloadCP }
+func (p *CPPayload) Type() PayloadType {
+	return PayloadCP
+}
+
 func (p *CPPayload) Marshal() ([]byte, error) {
 	var attrBytes []byte
 	for _, attr := range p.Attributes {
 		attrBuf := make([]byte, 4+len(attr.Value))
+
 		binary.BigEndian.PutUint16(attrBuf[0:2], uint16(attr.Type))
 		binary.BigEndian.PutUint16(attrBuf[2:4], uint16(len(attr.Value)))
+
 		copy(attrBuf[4:], attr.Value)
 		attrBytes = append(attrBytes, attrBuf...)
 	}
 
 	body := make([]byte, 4+len(attrBytes))
 	body[0] = byte(p.ConfigType)
+
 	copy(body[4:], attrBytes)
 
 	return marshalWithHeader(p.Type(), body), nil
@@ -404,7 +444,10 @@ type EAPPayload struct {
 	Data []byte // Complete EAP message
 }
 
-func (p *EAPPayload) Type() PayloadType { return PayloadEAP }
+func (p *EAPPayload) Type() PayloadType {
+	return PayloadEAP
+}
+
 func (p *EAPPayload) Marshal() ([]byte, error) {
 	return marshalWithHeader(p.Type(), p.Data), nil
 }
@@ -543,6 +586,7 @@ func parseV2Notify(body []byte) (*NotifyPayload, error) {
 	if len(body) < 4 {
 		return nil, fmt.Errorf("Notify payload too short: %d", len(body))
 	}
+
 	protocolID := ProtocolID(body[0])
 	spiSize := body[1]
 	msgType := NotifyType(binary.BigEndian.Uint16(body[2:4]))
@@ -574,6 +618,7 @@ func parseV2Delete(body []byte) (*DeletePayload, error) {
 	if len(body) < 4 {
 		return nil, fmt.Errorf("Delete payload too short: %d", len(body))
 	}
+
 	protocolID := ProtocolID(body[0])
 	spiSize := body[1]
 	numSPIs := binary.BigEndian.Uint16(body[2:4])
@@ -602,6 +647,7 @@ func parseV2TS(body []byte, isInitiator bool) (*TSPayload, error) {
 	if len(body) < 4 {
 		return nil, fmt.Errorf("TS payload too short: %d", len(body))
 	}
+
 	numTS := int(body[0])
 	var selectors []TrafficSelector
 	offset := 4
@@ -647,10 +693,11 @@ func parseV2CP(body []byte) (*CPPayload, error) {
 	if len(body) < 4 {
 		return nil, fmt.Errorf("CP payload too short: %d", len(body))
 	}
-	cpType := CPType(body[0])
 
+	cpType := CPType(body[0])
 	var attrs []ConfigAttribute
 	offset := 4
+
 	for offset+4 <= len(body) {
 		attrType := ConfigAttrType(binary.BigEndian.Uint16(body[offset : offset+2]))
 		attrLen := int(binary.BigEndian.Uint16(body[offset+2 : offset+4]))
