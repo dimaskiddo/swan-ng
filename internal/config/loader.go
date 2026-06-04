@@ -85,6 +85,7 @@ func Load(path string) (*Config, error) {
 		"listen", cfg.Server.Listen,
 		"connections", len(cfg.IPSec.Connections),
 		"ikev2_enabled", cfg.IKEv2.Enabled,
+		"ikev2_cookie_mode", cfg.IKEv2.CookieMode,
 		"ikev2_ipam_range", cfg.IKEv2.IPAM.Range,
 		"ikev2_dns_servers", cfg.IKEv2.IPAM.DNS,
 		"l2tp_enabled", cfg.L2TP.Enabled,
@@ -258,7 +259,10 @@ func applyDefaultsAndValidate(cfg *Config) error {
 		}
 	}
 
-	// --- IKEv2 IPAM defaults ---
+	// --- IKEv2 defaults ---
+	if cfg.IKEv2.CookieMode == "" {
+		cfg.IKEv2.CookieMode = "auto"
+	}
 	if cfg.IKEv2.IPAM.Range == "" {
 		cfg.IKEv2.IPAM.Range = "10.0.0.10 - 10.0.0.250"
 	}

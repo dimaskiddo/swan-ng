@@ -342,6 +342,8 @@ type IPAMConfig struct {
 type IKEv2Config struct {
 	// Enabled toggles the IKEv2 engine for end-user VPN clients.
 	Enabled bool `yaml:"enabled"`
+	// CookieMode sets the SA_INIT anti-DoS cookie mechanism ("auto", "busy", "unlimited").
+	CookieMode string `yaml:"cookie_mode"`
 	// IPAM holds the address pool configuration for IKEv2 clients.
 	IPAM IPAMConfig `yaml:"ipam"`
 	// Profile is a list of paths to IKEv2 user profile YAML files,

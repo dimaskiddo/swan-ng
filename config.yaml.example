@@ -56,16 +56,16 @@ ipsec:
 
   connections:
     # Connection 1: Generic L2TP/IPsec Responder
-    l2tp-responder:
-      left: "%defaultroute"
-      leftid: "<host_server_public_ip>"
-      leftprotoport: "17/1701"
-      right: "%any"
-      rightprotoport: "17/1701"
-      authby: "secret"
-      psk: "<pre_shared_key>"
-      type: "transport"
-      auto: "add"
+    # l2tp-responder:
+    #   left: "%defaultroute"
+    #   leftid: "<host_server_public_ip>"
+    #   leftprotoport: "17/1701"
+    #   right: "%any"
+    #   rightprotoport: "17/1701"
+    #   authby: "secret"
+    #   psk: "<pre_shared_key>"
+    #   type: "transport"
+    #   auto: "add"
 
     # Connection 2: Dedicated Site-to-Site Tunnel
     # Can also be defined in ipsec.d/office-s2s.yaml
@@ -82,6 +82,10 @@ ipsec:
 # IKEv2 configuration.
 ikev2:
   enabled: false
+
+  # Anti-DoS Cookie Mode for IKE_SA_INIT.
+  # Values: auto (default), busy (always require), unlimited (never require)
+  cookie_mode: "auto"
 
   # Hot-reload: if true, IKEv2 profile.d/ changes are applied live
   # without daemon restart.
