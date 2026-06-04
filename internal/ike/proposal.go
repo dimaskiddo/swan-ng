@@ -317,6 +317,7 @@ func SelectV1Proposal(sa *SAv1Payload, supported []V1Phase1Config) (*V1Phase1Con
 	for _, prop := range sa.Proposals {
 		for _, xf := range prop.Transforms {
 			parsed := parseV1TransformAttrs(xf.Attributes)
+			parsed.EncAlg = uint16(xf.TransformID)
 			for _, sup := range supported {
 				if v1ConfigMatch(&sup, &parsed) {
 					matched := sup
