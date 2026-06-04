@@ -36,16 +36,13 @@ type L2TPHandler interface {
 //
 //   - Inbound:  UDP:4500 → NAT-T classify → SA lookup by SPI → Decrypt → TUN write
 //   - Outbound: TUN read → default SA → Encrypt → UDP send to peer
-//
-// Phase 3 uses a "default outbound SA" for routing. Phase 5 (IKEv2) will
-// replace this with a proper Security Policy Database (SPD).
 type Engine struct {
 	saDB         *SADatabase
 	pool         *BufferPool
 	tunReader    TUNReader
 	tunWriter    TUNWriter
 	udpSender    UDPSender
-	defaultOutSA *SecurityAssociation            // Phase 3: simple outbound SA for testing
+	defaultOutSA *SecurityAssociation
 	nattPort     int                             // Port for sending ESP over NAT-T (4500)
 	l2tpHandler  L2TPHandler                     // L2TP handler for transport-mode packets
 	spd          map[string]*SecurityAssociation // SPD maps destination IP strings (string(IP.To16())) to Outbound SAs
@@ -238,6 +235,13 @@ func (e *Engine) HandleInboundESP(buf []byte, n int, remoteAddr *net.UDPAddr) {
 			"size", len(espData),
 		)
 
+		return
+	}
+
+	if pktType == PacketTypeKeepalive {
+		// NAT-T keepalive (single 0xFF byte, RFC 3948 §4).
+		// No response required — just keeps NAT bindings alive.
+		log.Debug("NAT-T keepalive received", "from", remoteAddr)
 		return
 	}
 

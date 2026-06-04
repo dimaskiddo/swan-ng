@@ -20,6 +20,14 @@ const (
 
 	// CHACHA20POLY1305 uses ChaCha20-Poly1305 (RFC 7634). Key: 36 bytes (32 key + 4 salt).
 	CHACHA20POLY1305
+
+	// AES128CBC uses AES-128-CBC with separate HMAC integrity (legacy).
+	// Key: 16 bytes. IV: 16 bytes (random, per-packet).
+	AES128CBC CipherSuite = 10
+
+	// AES256CBC uses AES-256-CBC with separate HMAC integrity (legacy).
+	// Key: 32 bytes. IV: 16 bytes (random, per-packet).
+	AES256CBC CipherSuite = 11
 )
 
 // String returns a human-readable cipher suite name.
@@ -34,8 +42,27 @@ func (cs CipherSuite) String() string {
 	case CHACHA20POLY1305:
 		return "CHACHA20-POLY1305"
 
+	case AES128CBC:
+		return "AES-128-CBC"
+
+	case AES256CBC:
+		return "AES-256-CBC"
+
 	default:
 		return fmt.Sprintf("unknown(%d)", cs)
+	}
+}
+
+// IsAEAD returns true if the cipher suite is an AEAD algorithm
+// (combined encryption + authentication). Returns false for CBC suites
+// that require a separate HMAC integrity algorithm.
+func IsAEAD(suite CipherSuite) bool {
+	switch suite {
+	case AES128GCM, AES256GCM, CHACHA20POLY1305:
+		return true
+
+	default:
+		return false
 	}
 }
 
@@ -50,6 +77,52 @@ func AEADKeySize(suite CipherSuite) int {
 
 	case CHACHA20POLY1305:
 		return 32
+
+	default:
+		return 0
+	}
+}
+
+// CipherKeySize returns the encryption key size for any cipher suite,
+// including non-AEAD (CBC) suites.
+func CipherKeySize(suite CipherSuite) int {
+	switch suite {
+	case AES128GCM:
+		return 16
+
+	case AES256GCM:
+		return 32
+
+	case CHACHA20POLY1305:
+		return 32
+
+	case AES128CBC:
+		return 16
+
+	case AES256CBC:
+		return 32
+
+	default:
+		return 0
+	}
+}
+
+// CBCIVSize returns the IV size for CBC cipher suites (always 16 for AES).
+func CBCIVSize(suite CipherSuite) int {
+	switch suite {
+	case AES128CBC, AES256CBC:
+		return aes.BlockSize
+
+	default:
+		return 0
+	}
+}
+
+// CBCBlockSize returns the block size for CBC cipher suites.
+func CBCBlockSize(suite CipherSuite) int {
+	switch suite {
+	case AES128CBC, AES256CBC:
+		return aes.BlockSize
 
 	default:
 		return 0

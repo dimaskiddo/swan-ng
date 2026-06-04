@@ -1,6 +1,7 @@
 package esp
 
 import (
+	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/binary"
@@ -15,16 +16,19 @@ import (
 // SecurityAssociation holds the per-tunnel cryptographic state for an
 // ESP Security Association. Looked up by SPI on inbound per RFC 4303 §2.1.
 type SecurityAssociation struct {
-	SPI          uint32        // Security Parameters Index
-	SeqNum       uint64        // Outbound sequence counter (atomic)
-	ESN          bool          // Extended Sequence Numbers enabled
-	CipherSuite  CipherSuite   // Algorithm identifier
-	AEAD         cipher.AEAD   // Initialized AEAD cipher
-	Salt         []byte        // 4-byte salt for nonce construction
-	ReplayWindow *ReplayWindow // Anti-replay window (inbound SAs)
-	PeerAddr     *net.UDPAddr  // Remote endpoint
-	TunnelMode   bool          // Always true for Phase 3
-	CreatedAt    time.Time     // SA creation timestamp
+	SPI          uint32              // Security Parameters Index
+	SeqNum       uint64              // Outbound sequence counter (atomic)
+	ESN          bool                // Extended Sequence Numbers enabled
+	CipherSuite  CipherSuite         // Algorithm identifier
+	AEAD         cipher.AEAD         // Initialized AEAD cipher (nil for CBC)
+	CBCBlock     cipher.Block        // Initialized AES block cipher for CBC mode (nil for AEAD)
+	Salt         []byte              // 4-byte salt for nonce construction (AEAD only)
+	IntegSuite   IntegritySuite      // Integrity algorithm (IntegNone for AEAD)
+	Integrity    *IntegrityAlgorithm // HMAC integrity instance (nil for AEAD)
+	ReplayWindow *ReplayWindow       // Anti-replay window (inbound SAs)
+	PeerAddr     *net.UDPAddr        // Remote endpoint
+	TunnelMode   bool                // Always true for Phase 3
+	CreatedAt    time.Time           // SA creation timestamp
 }
 
 // SADatabase is a thread-safe database of Security Associations.
@@ -56,6 +60,7 @@ func GenerateSPI() (uint32, error) {
 		if spi > 255 {
 			return spi, nil
 		}
+
 		// SPI in reserved range, retry.
 	}
 }
@@ -190,12 +195,56 @@ func NewSecurityAssociation(spi uint32, suite CipherSuite, key []byte, salt []by
 		CipherSuite: suite,
 		AEAD:        aead,
 		Salt:        make([]byte, AEADSaltSize(suite)),
+		IntegSuite:  IntegNone,
 		PeerAddr:    peer,
 		TunnelMode:  true,
 		CreatedAt:   time.Now(),
 	}
 
 	copy(sa.Salt, salt)
+
+	if withReplay {
+		sa.ReplayWindow = NewReplayWindow(DefaultReplayWindowSize)
+	}
+
+	return sa, nil
+}
+
+// NewCBCSecurityAssociation creates a Security Association using AES-CBC
+// with a separate HMAC integrity algorithm for legacy interoperability.
+func NewCBCSecurityAssociation(spi uint32, suite CipherSuite, encrKey []byte, integSuite IntegritySuite, integKey []byte, peer *net.UDPAddr, withReplay bool) (*SecurityAssociation, error) {
+	expectedKeySize := CipherKeySize(suite)
+	if expectedKeySize == 0 {
+		return nil, fmt.Errorf("unsupported CBC cipher suite: %s", suite)
+	}
+
+	if len(encrKey) != expectedKeySize {
+		return nil, fmt.Errorf("invalid encryption key size for %s: expected %d, got %d",
+			suite, expectedKeySize, len(encrKey))
+	}
+
+	block, err := aes.NewCipher(encrKey)
+	if err != nil {
+		return nil, fmt.Errorf("creating AES cipher for %s: %w", suite, err)
+	}
+
+	integ, err := NewIntegrity(integSuite, integKey)
+	if err != nil {
+		return nil, fmt.Errorf("creating integrity for %s: %w", integSuite, err)
+	}
+
+	sa := &SecurityAssociation{
+		SPI:         spi,
+		SeqNum:      0,
+		ESN:         false,
+		CipherSuite: suite,
+		CBCBlock:    block,
+		IntegSuite:  integSuite,
+		Integrity:   integ,
+		PeerAddr:    peer,
+		TunnelMode:  true,
+		CreatedAt:   time.Now(),
+	}
 
 	if withReplay {
 		sa.ReplayWindow = NewReplayWindow(DefaultReplayWindowSize)

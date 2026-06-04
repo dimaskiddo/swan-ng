@@ -1,6 +1,9 @@
 package esp
 
-import "fmt"
+import (
+	"fmt"
+	"net"
+)
 
 // NAT-T UDP Encapsulation per RFC 3948.
 //
@@ -29,6 +32,9 @@ const (
 
 	// PacketTypeIKE indicates an IKE packet (Non-ESP Marker: 4 zero bytes).
 	PacketTypeIKE
+
+	// PacketTypeKeepalive indicates a NAT-T keepalive (single 0xFF byte, RFC 3948 §4).
+	PacketTypeKeepalive
 )
 
 // ClassifyNATT determines whether a datagram received on UDP:4500
@@ -36,6 +42,11 @@ const (
 //
 // Returns the packet type and the payload after stripping any markers.
 func ClassifyNATT(buf []byte) (PacketType, []byte, error) {
+	// Check for NAT-T keepalive: single 0xFF byte (RFC 3948 §4).
+	if len(buf) == 1 && buf[0] == 0xFF {
+		return PacketTypeKeepalive, nil, nil
+	}
+
 	if len(buf) < NonESPMarkerLen {
 		return 0, nil, fmt.Errorf("NAT-T packet too short: %d bytes", len(buf))
 	}
@@ -65,4 +76,23 @@ func PrependNonESPMarker(ikePacket []byte) []byte {
 	copy(result[NonESPMarkerLen:], ikePacket)
 
 	return result
+}
+
+// NATTKeepalivePacket is the single-byte keepalive per RFC 3948 §4.
+var NATTKeepalivePacket = []byte{0xFF}
+
+// SendNATTKeepalive sends a NAT-T keepalive packet to maintain NAT bindings.
+// Per RFC 3948 §4, this is a single 0xFF byte sent on UDP port 4500.
+func SendNATTKeepalive(sender UDPSender, peerAddr *net.UDPAddr) error {
+	if sender == nil || peerAddr == nil {
+		return fmt.Errorf("NAT-T keepalive: sender or peer address is nil")
+	}
+
+	return sender.SendTo(4500, NATTKeepalivePacket, peerAddr)
+}
+
+// IsNATTKeepalive returns true if the buffer is a NAT-T keepalive packet
+// (single 0xFF byte per RFC 3948 §4).
+func IsNATTKeepalive(buf []byte) bool {
+	return len(buf) == 1 && buf[0] == 0xFF
 }

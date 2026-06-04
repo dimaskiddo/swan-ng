@@ -3,6 +3,8 @@ package ike
 import (
 	"encoding/binary"
 	"fmt"
+
+	"github.com/dimaskiddo/swan-ng/internal/log"
 )
 
 // ---- IKEv1 DOI & Situation (RFC 2407, RFC 2408) ----
@@ -398,7 +400,9 @@ func parseV1Payload(pt PayloadType, body []byte) (Payload, error) {
 		return &NATDv1Payload{HashData: cloneBytes(body)}, nil
 
 	default:
-		return nil, fmt.Errorf("unrecognized IKEv1 payload type %d", pt)
+		// Unknown payload type — store as RawPayload for vendor interoperability.
+		log.Debug("skipping unrecognized IKEv1 payload type", "type", uint8(pt))
+		return &RawPayload{PayloadType: pt, Data: cloneBytes(body)}, nil
 	}
 }
 

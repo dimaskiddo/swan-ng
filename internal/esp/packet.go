@@ -1,6 +1,8 @@
 package esp
 
 import (
+	"crypto/cipher"
+	"crypto/rand"
 	"encoding/binary"
 	"fmt"
 	"sync/atomic"
@@ -55,6 +57,16 @@ func Encrypt(sa *SecurityAssociation, plainPayload []byte, nextHeader byte) ([]b
 		return nil, fmt.Errorf("security association is nil")
 	}
 
+	// Branch on AEAD vs CBC.
+	if IsAEAD(sa.CipherSuite) {
+		return encryptAEAD(sa, plainPayload, nextHeader)
+	}
+
+	return encryptCBC(sa, plainPayload, nextHeader)
+}
+
+// encryptAEAD handles AEAD (AES-GCM, ChaCha20-Poly1305) ESP encryption.
+func encryptAEAD(sa *SecurityAssociation, plainPayload []byte, nextHeader byte) ([]byte, error) {
 	if sa.AEAD == nil {
 		return nil, fmt.Errorf("AEAD cipher not initialized for SPI 0x%08X", sa.SPI)
 	}
@@ -104,6 +116,63 @@ func Encrypt(sa *SecurityAssociation, plainPayload []byte, nextHeader byte) ([]b
 	return espPacket, nil
 }
 
+// encryptCBC handles AES-CBC + HMAC ESP encryption.
+// Wire format: SPI(4) | SeqNum(4) | IV(16) | Ciphertext | ICV(truncLen)
+// ICV covers: SPI | SeqNum | IV | Ciphertext (per RFC 4303 §3.3.2.1).
+func encryptCBC(sa *SecurityAssociation, plainPayload []byte, nextHeader byte) ([]byte, error) {
+	if sa.CBCBlock == nil {
+		return nil, fmt.Errorf("CBC block cipher not initialized for SPI 0x%08X", sa.SPI)
+	}
+
+	if sa.Integrity == nil {
+		return nil, fmt.Errorf("integrity algorithm not initialized for SPI 0x%08X", sa.SPI)
+	}
+
+	// Increment sequence number atomically.
+	newSeq := atomic.AddUint64(&sa.SeqNum, 1)
+	seqLow := uint32(newSeq & 0xFFFFFFFF)
+
+	if newSeq > 0xFFFFFFFF && !sa.ESN {
+		return nil, fmt.Errorf("sequence number overflow on SPI 0x%08X", sa.SPI)
+	}
+
+	// Build ESP trailer with block alignment to AES block size (16 bytes).
+	padded := buildESPTrailerCBC(plainPayload, nextHeader, CBCBlockSize(sa.CipherSuite))
+
+	// Construct ESP header.
+	hdr := ESPHeader{
+		SPI:    sa.SPI,
+		SeqNum: seqLow,
+	}
+
+	// Generate random 16-byte IV for CBC.
+	ivSize := CBCIVSize(sa.CipherSuite)
+	iv := make([]byte, ivSize)
+	if _, err := rand.Read(iv); err != nil {
+		return nil, fmt.Errorf("generating CBC IV for SPI 0x%08X: %w", sa.SPI, err)
+	}
+
+	// CBC encrypt.
+	ciphertext := make([]byte, len(padded))
+	mode := cipher.NewCBCEncrypter(sa.CBCBlock, iv)
+	mode.CryptBlocks(ciphertext, padded)
+
+	// Assemble: header(8) + IV(16) + ciphertext + ICV.
+	icvSize := sa.Integrity.ICVSize()
+	espPacketLen := ESPHeaderLen + ivSize + len(ciphertext) + icvSize
+	espPacket := make([]byte, espPacketLen)
+
+	MarshalHeader(espPacket, hdr)
+	copy(espPacket[ESPHeaderLen:], iv)
+	copy(espPacket[ESPHeaderLen+ivSize:], ciphertext)
+
+	// Compute ICV over everything before the ICV field.
+	icv := sa.Integrity.Compute(espPacket[:ESPHeaderLen+ivSize+len(ciphertext)])
+	copy(espPacket[ESPHeaderLen+ivSize+len(ciphertext):], icv)
+
+	return espPacket, nil
+}
+
 // Decrypt processes an incoming ESP packet: extracts the header, verifies
 // anti-replay, decrypts the payload, and strips ESP trailer.
 //
@@ -115,6 +184,16 @@ func Decrypt(sa *SecurityAssociation, espPacket []byte) ([]byte, byte, error) {
 		return nil, 0, fmt.Errorf("security association is nil")
 	}
 
+	// Branch on AEAD vs CBC.
+	if IsAEAD(sa.CipherSuite) {
+		return decryptAEAD(sa, espPacket)
+	}
+
+	return decryptCBC(sa, espPacket)
+}
+
+// decryptAEAD handles AEAD ESP decryption.
+func decryptAEAD(sa *SecurityAssociation, espPacket []byte) ([]byte, byte, error) {
 	if sa.AEAD == nil {
 		return nil, 0, fmt.Errorf("AEAD cipher not initialized for SPI 0x%08X", sa.SPI)
 	}
@@ -134,7 +213,6 @@ func Decrypt(sa *SecurityAssociation, espPacket []byte) ([]byte, byte, error) {
 	}
 
 	// Anti-replay check (RFC 4303 §3.4.3).
-	// Use low 32-bit seq for now; ESN handling will use full 64-bit.
 	seq64 := uint64(hdr.SeqNum)
 
 	if sa.ReplayWindow != nil {
@@ -199,6 +277,96 @@ func Decrypt(sa *SecurityAssociation, espPacket []byte) ([]byte, byte, error) {
 	return innerPayload, nextHeader, nil
 }
 
+// decryptCBC handles AES-CBC + HMAC ESP decryption.
+// Wire format: SPI(4) | SeqNum(4) | IV(16) | Ciphertext | ICV(truncLen)
+func decryptCBC(sa *SecurityAssociation, espPacket []byte) ([]byte, byte, error) {
+	if sa.CBCBlock == nil {
+		return nil, 0, fmt.Errorf("CBC block cipher not initialized for SPI 0x%08X", sa.SPI)
+	}
+
+	if sa.Integrity == nil {
+		return nil, 0, fmt.Errorf("integrity algorithm not initialized for SPI 0x%08X", sa.SPI)
+	}
+
+	ivSize := CBCIVSize(sa.CipherSuite)
+	icvSize := sa.Integrity.ICVSize()
+	blockSize := CBCBlockSize(sa.CipherSuite)
+	minPacketSize := ESPHeaderLen + ivSize + blockSize + icvSize // At least 1 block of ciphertext
+
+	if len(espPacket) < minPacketSize {
+		return nil, 0, fmt.Errorf("CBC ESP packet too short: need >= %d, got %d", minPacketSize, len(espPacket))
+	}
+
+	// Parse header.
+	hdr, err := ParseHeader(espPacket)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Step 1: Verify ICV first (before any other processing).
+	// ICV is over: SPI | SeqNum | IV | Ciphertext (everything except the ICV itself).
+	macData := espPacket[:len(espPacket)-icvSize]
+	receivedICV := espPacket[len(espPacket)-icvSize:]
+
+	if !sa.Integrity.Verify(macData, receivedICV) {
+		log.Debug("ESP CBC integrity check failed",
+			"spi", fmt.Sprintf("0x%08X", hdr.SPI),
+			"seq", hdr.SeqNum,
+		)
+
+		return nil, 0, fmt.Errorf("ESP integrity check failed for SPI 0x%08X", hdr.SPI)
+	}
+
+	// Step 2: Anti-replay check.
+	seq64 := uint64(hdr.SeqNum)
+
+	if sa.ReplayWindow != nil {
+		if !sa.ReplayWindow.Check(seq64) {
+			log.Debug("ESP anti-replay reject",
+				"spi", fmt.Sprintf("0x%08X", hdr.SPI),
+				"seq", hdr.SeqNum,
+			)
+
+			return nil, 0, fmt.Errorf("anti-replay check failed for SPI 0x%08X seq %d", hdr.SPI, hdr.SeqNum)
+		}
+	}
+
+	// Step 3: Extract IV and ciphertext.
+	iv := espPacket[ESPHeaderLen : ESPHeaderLen+ivSize]
+	ciphertext := espPacket[ESPHeaderLen+ivSize : len(espPacket)-icvSize]
+
+	if len(ciphertext)%blockSize != 0 {
+		return nil, 0, fmt.Errorf("CBC ciphertext not block-aligned: %d bytes", len(ciphertext))
+	}
+
+	// Step 4: CBC decrypt.
+	plaintext := make([]byte, len(ciphertext))
+	mode := cipher.NewCBCDecrypter(sa.CBCBlock, iv)
+	mode.CryptBlocks(plaintext, ciphertext)
+
+	// Step 5: Integrity passed — update anti-replay window.
+	if sa.ReplayWindow != nil {
+		sa.ReplayWindow.Advance(seq64)
+	}
+
+	// Step 6: Strip ESP trailer.
+	innerPayload, nextHeader, err := stripESPTrailer(plaintext)
+	if err != nil {
+		return nil, 0, fmt.Errorf("stripping ESP trailer for SPI 0x%08X: %w", sa.SPI, err)
+	}
+
+	if nextHeader == NextHeaderDummy {
+		log.Debug("ESP dummy packet discarded",
+			"spi", fmt.Sprintf("0x%08X", hdr.SPI),
+			"seq", hdr.SeqNum,
+		)
+
+		return nil, NextHeaderDummy, nil
+	}
+
+	return innerPayload, nextHeader, nil
+}
+
 // buildESPTrailer appends RFC 4303 §2.4/§2.5/§2.6 trailer to plaintext:
 // padding bytes (1,2,3,...) + PadLength (1 byte) + NextHeader (1 byte).
 //
@@ -213,6 +381,39 @@ func buildESPTrailer(payload []byte, nextHeader byte) []byte {
 
 	if remainder != 0 {
 		padLen = 4 - remainder
+	}
+
+	result := make([]byte, payloadLen+padLen+ESPTrailerMinLen)
+	copy(result, payload)
+
+	// Fill padding with monotonically increasing bytes: 1, 2, 3, ... (RFC 4303 §2.4).
+	for i := 0; i < padLen; i++ {
+		result[payloadLen+i] = byte(i + 1)
+	}
+
+	// PadLength field.
+	result[payloadLen+padLen] = byte(padLen)
+
+	// NextHeader field.
+	result[payloadLen+padLen+1] = nextHeader
+
+	return result
+}
+
+// buildESPTrailerCBC appends RFC 4303 trailer with block alignment for CBC mode.
+// The total (payload + padding + padLen + nextHeader) must be a multiple of blockSize.
+func buildESPTrailerCBC(payload []byte, nextHeader byte, blockSize int) []byte {
+	if blockSize < 4 {
+		blockSize = 4 // Minimum alignment per RFC 4303.
+	}
+
+	payloadLen := len(payload)
+	totalWithoutPad := payloadLen + ESPTrailerMinLen
+	remainder := totalWithoutPad % blockSize
+	padLen := 0
+
+	if remainder != 0 {
+		padLen = blockSize - remainder
 	}
 
 	result := make([]byte, payloadLen+padLen+ESPTrailerMinLen)
@@ -259,6 +460,7 @@ func stripESPTrailer(plaintext []byte) ([]byte, byte, error) {
 				"expected", expected,
 				"actual", actual,
 			)
+
 			// RFC 4303 says receiver SHOULD inspect, but we don't reject — some
 			// implementations use non-standard padding.
 		}

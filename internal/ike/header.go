@@ -3,6 +3,8 @@ package ike
 import (
 	"encoding/binary"
 	"fmt"
+
+	"github.com/dimaskiddo/swan-ng/internal/log"
 )
 
 // HeaderLen is the fixed size of the IKE/ISAKMP header per
@@ -236,7 +238,13 @@ func (h Header) Validate() error {
 	}
 
 	if h.MajorVersion > 2 {
-		return fmt.Errorf("unsupported IKE major version %d", h.MajorVersion)
+		// Per RFC 7296 §2.5, if we receive a version higher than we support,
+		// we should respond with our highest supported version, not reject.
+		// Log warning but allow processing to continue for interoperability.
+		log.Warn("received IKE major version higher than supported",
+			"version", h.MajorVersion,
+			"max_supported", 2,
+		)
 	}
 
 	if h.Length < HeaderLen {

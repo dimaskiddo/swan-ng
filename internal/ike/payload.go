@@ -306,6 +306,12 @@ func ParsePayloadChain(buf []byte, firstPayload PayloadType, isV2 bool) (Payload
 		// Parse typed payload or fall back to RawPayload.
 		payload := parseTypedPayload(nextType, body, isV2)
 
+		// RFC 7296 §2.5: If the Critical Flag is set and the payload type
+		// is unrecognized (stored as RawPayload), reject the message.
+		if raw, ok := payload.(*RawPayload); ok && gph.Critical {
+			return chain, fmt.Errorf("unsupported critical payload type %d at offset %d", raw.PayloadType, offset)
+		}
+
 		chain = append(chain, ParsedPayload{
 			Header:  gph,
 			Payload: payload,

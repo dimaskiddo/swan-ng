@@ -3,6 +3,8 @@ package ike
 import (
 	"encoding/binary"
 	"fmt"
+
+	"github.com/dimaskiddo/swan-ng/internal/log"
 )
 
 // ---- IKEv2 Notify Message Types (RFC 7296 §3.10.1) ----
@@ -518,7 +520,10 @@ func parseV2Payload(pt PayloadType, body []byte) (Payload, error) {
 		return parseV2SKF(body)
 
 	default:
-		return nil, fmt.Errorf("unrecognized IKEv2 payload type %d", pt)
+		// Unknown payload type — store as RawPayload for vendor interoperability.
+		// Per RFC 7296 §2.5, unknown non-critical payloads should be skipped.
+		log.Debug("skipping unrecognized IKEv2 payload type", "type", uint8(pt))
+		return &RawPayload{PayloadType: pt, Data: cloneBytes(body)}, nil
 	}
 }
 
