@@ -49,6 +49,9 @@ type Engine struct {
 	nattPort     int                  // Port for sending ESP over NAT-T (4500)
 	l2tpHandler  L2TPHandler          // L2TP handler for transport-mode packets
 
+	// spd maps destination IP strings (string(IP.To16())) to Outbound SAs.
+	spd map[string]*SecurityAssociation
+
 	mu      sync.Mutex
 	running bool
 }
@@ -101,6 +104,7 @@ func NewEngine(cfg EngineConfig) (*Engine, error) {
 		udpSender:    cfg.UDPSender,
 		defaultOutSA: cfg.DefaultOutboundSA,
 		nattPort:     nattPort,
+		spd:          make(map[string]*SecurityAssociation),
 	}, nil
 }
 
@@ -129,6 +133,42 @@ func (e *Engine) SetL2TPHandler(h L2TPHandler) {
 	defer e.mu.Unlock()
 	e.l2tpHandler = h
 	log.Info("L2TP handler registered with ESP engine")
+}
+
+// AddOutboundSA registers an outbound SA for a specific destination IP (Basic SPD).
+func (e *Engine) AddOutboundSA(dstIP net.IP, sa *SecurityAssociation) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	e.spd[string(dstIP.To16())] = sa
+
+	log.Debug("ESP SPD: outbound SA registered", "dst_ip", dstIP.String(), "spi", fmt.Sprintf("0x%08X", sa.SPI))
+}
+
+// RemoveOutboundSA removes the outbound SA for a specific destination IP.
+func (e *Engine) RemoveOutboundSA(dstIP net.IP) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	delete(e.spd, string(dstIP.To16()))
+
+	log.Debug("ESP SPD: outbound SA removed", "dst_ip", dstIP.String())
+}
+
+// AddInboundSA registers an inbound SA in the SADatabase.
+func (e *Engine) AddInboundSA(sa *SecurityAssociation) {
+	if e.saDB != nil {
+		e.saDB.AddInbound(sa)
+		log.Debug("ESP SPD: inbound SA registered", "spi", fmt.Sprintf("0x%08X", sa.SPI))
+	}
+}
+
+// RemoveInboundSA removes an inbound SA from the SADatabase.
+func (e *Engine) RemoveInboundSA(spi uint32) {
+	if e.saDB != nil {
+		e.saDB.RemoveInbound(spi)
+		log.Debug("ESP SPD: inbound SA removed", "spi", fmt.Sprintf("0x%08X", spi))
+	}
 }
 
 // Start begins the bidirectional packet processing loops.
@@ -351,12 +391,19 @@ func (e *Engine) outboundLoop(ctx context.Context) {
 			continue
 		}
 
-		// Determine next header from IP version.
+		// Determine next header and destination IP from IP version.
 		nextHeader := detectIPVersion(buf[:n])
+		dstIP := extractDstIP(buf[:n])
 
-		// Get outbound SA.
+		// Get outbound SA from SPD, fallback to default.
 		e.mu.Lock()
-		outSA := e.defaultOutSA
+		var outSA *SecurityAssociation
+		if dstIP != nil {
+			outSA = e.spd[string(dstIP.To16())]
+		}
+		if outSA == nil {
+			outSA = e.defaultOutSA
+		}
 		e.mu.Unlock()
 
 		if outSA == nil {
@@ -407,4 +454,27 @@ func detectIPVersion(packet []byte) byte {
 	default:
 		return NextHeaderIPv4
 	}
+}
+
+// extractDstIP parses the destination IP address from a raw IP packet.
+func extractDstIP(packet []byte) net.IP {
+	if len(packet) < 20 {
+		return nil
+	}
+
+	version := packet[0] >> 4
+	switch version {
+	case 4:
+		return net.IP(packet[16:20])
+
+	case 6:
+		if len(packet) < 40 {
+			return nil
+		}
+
+		return net.IP(packet[24:40])
+
+	}
+
+	return nil
 }

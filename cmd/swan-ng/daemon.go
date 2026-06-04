@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/dimaskiddo/swan-ng/internal/esp"
+	"github.com/dimaskiddo/swan-ng/internal/ike"
 	"github.com/dimaskiddo/swan-ng/internal/ipam"
 	"github.com/dimaskiddo/swan-ng/internal/l2tp"
 	"github.com/dimaskiddo/swan-ng/internal/listener"
@@ -109,6 +110,51 @@ IKEv2/L2TP/ESP packet processing.`,
 			return err
 		}
 
+		// --- IKE Server Initialization ---
+		ikeSessionMgr := ike.NewSessionManager(espEngine)
+
+		v1PSKFunc := func(peerAddr *net.UDPAddr) ([]byte, string, error) {
+			for name, conn := range cfg.IPSec.Connections {
+				if conn.AuthBy != "secret" || conn.KeyExchange != "ikev1" {
+					continue
+				}
+
+				if conn.Right == "%any" || conn.Right == peerAddr.IP.String() {
+					if conn.PSK != "" {
+						return []byte(conn.PSK), name, nil
+					}
+				}
+			}
+
+			return nil, "", fmt.Errorf("no IKEv1 PSK found for %s", peerAddr.String())
+		}
+		ikev1Handler := ike.NewIKEv1Handler(v1PSKFunc, []byte("swan-ng"), ike.IDIPv4Addr)
+
+		v2PSKFunc := func(peerAddr *net.UDPAddr, peerID []byte) ([]byte, string, error) {
+			peerIDStr := string(peerID)
+			for name, conn := range cfg.IPSec.Connections {
+				if conn.AuthBy != "secret" || (conn.KeyExchange != "" && conn.KeyExchange != "ikev2") {
+					continue
+				}
+
+				matchID := conn.Right
+				if conn.RightID != "" {
+					matchID = conn.RightID
+				}
+
+				if matchID == "%any" || matchID == peerIDStr || matchID == peerAddr.IP.String() {
+					if conn.PSK != "" {
+						return []byte(conn.PSK), name, nil
+					}
+				}
+			}
+
+			return nil, "", fmt.Errorf("no IKEv2 PSK found for %s (ID: %s)", peerAddr.String(), peerIDStr)
+		}
+		ikev2Handler := ike.NewIKEv2Handler(v2PSKFunc, []byte("swan-ng"), ike.IDIPv4Addr, ike.CookieModeAuto)
+
+		ikeServer := ike.NewServer(ikeSessionMgr, ikev1Handler, ikev2Handler, listenMgr)
+
 		// --- L2TP Server Initialization ---
 		var l2tpServer *l2tp.Server
 		if cfg.L2TP.Enabled {
@@ -121,19 +167,27 @@ IKEv2/L2TP/ESP packet processing.`,
 		// Bind UDP listeners.
 		// Port 4500: NAT-T ESP + IKE demux.
 		err = listenMgr.AddUDP(listenAddr, listener.PortNATT, "NAT-T/ESP",
-			espEngine.HandleInboundESP,
+			func(buf []byte, n int, remoteAddr *net.UDPAddr) {
+				pktType, payload, err := esp.ClassifyNATT(buf[:n])
+				if err != nil {
+					log.Debug("NAT-T classification failed", "error", err, "peer", remoteAddr)
+					return
+				}
+				if pktType == esp.PacketTypeIKE {
+					ikeServer.HandlePacket(payload, len(payload), remoteAddr, true)
+				} else {
+					espEngine.HandleInboundESP(buf, n, remoteAddr)
+				}
+			},
 		)
 		if err != nil {
 			log.Error("failed to bind UDP:4500", "error", err.Error())
 		}
 
-		// Port 500: IKE control (Phase 5).
+		// Port 500: IKE control.
 		err = listenMgr.AddUDP(listenAddr, listener.PortIKE, "IKE",
 			func(buf []byte, n int, remoteAddr *net.UDPAddr) {
-				log.Debug("IKE packet received on port 500, deferring to Phase 5",
-					"from", remoteAddr,
-					"size", n,
-				)
+				ikeServer.HandlePacket(buf, n, remoteAddr, false)
 			},
 		)
 		if err != nil {
@@ -224,11 +278,13 @@ func initL2TPServer(ctx context.Context, espEngine *esp.Engine, tunDev *tun.Devi
 	// Parse DNS servers.
 	dns1 := net.ParseIP("1.1.1.1")
 	dns2 := net.ParseIP("1.0.0.1")
+
 	if len(cfg.L2TP.IPAM.DNS) >= 1 {
 		if parsed := net.ParseIP(cfg.L2TP.IPAM.DNS[0]); parsed != nil {
 			dns1 = parsed
 		}
 	}
+
 	if len(cfg.L2TP.IPAM.DNS) >= 2 {
 		if parsed := net.ParseIP(cfg.L2TP.IPAM.DNS[1]); parsed != nil {
 			dns2 = parsed

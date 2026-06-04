@@ -471,6 +471,9 @@ func parseV2Payload(pt PayloadType, body []byte) (Payload, error) {
 	case PayloadSA:
 		return parseV2SA(body)
 
+	case PayloadSKF:
+		return parseV2SKF(body)
+
 	default:
 		return nil, fmt.Errorf("unrecognized IKEv2 payload type %d", pt)
 	}

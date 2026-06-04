@@ -19,7 +19,7 @@ func newTestSAHelper(t *testing.T, spi uint32) *SecurityAssociation {
 		t.Fatal(err)
 	}
 
-	sa, err := NewTestSA(spi, AES128GCM, key, salt, &net.UDPAddr{
+	sa, err := NewSecurityAssociation(spi, AES128GCM, key, salt, &net.UDPAddr{
 		IP:   net.IPv4(192, 168, 1, 1),
 		Port: 4500,
 	}, true)
@@ -192,7 +192,7 @@ func TestGenerateSPI(t *testing.T) {
 	}
 }
 
-func TestNewTestSA(t *testing.T) {
+func TestNewSecurityAssociation(t *testing.T) {
 	key := make([]byte, 16)
 	salt := make([]byte, 4)
 	if _, err := rand.Read(key); err != nil {
@@ -202,12 +202,12 @@ func TestNewTestSA(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sa, err := NewTestSA(0x42424242, AES128GCM, key, salt, &net.UDPAddr{
+	sa, err := NewSecurityAssociation(0x42424242, AES128GCM, key, salt, &net.UDPAddr{
 		IP:   net.IPv4(10, 0, 0, 1),
 		Port: 4500,
 	}, true)
 	if err != nil {
-		t.Fatalf("NewTestSA failed: %v", err)
+		t.Fatalf("NewSecurityAssociation failed: %v", err)
 	}
 
 	if sa.SPI != 0x42424242 {

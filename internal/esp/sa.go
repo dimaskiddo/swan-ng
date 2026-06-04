@@ -176,10 +176,8 @@ func (db *SADatabase) OutboundCount() int {
 	return len(db.outbound)
 }
 
-// NewTestSA creates a Security Association for testing purposes.
-// Phase 3 remark: This function is for Phase 3 manual testing only.
-// In production, SAs will be negotiated via IKEv2 (Phase 5).
-func NewTestSA(spi uint32, suite CipherSuite, key []byte, salt []byte, peer *net.UDPAddr, withReplay bool) (*SecurityAssociation, error) {
+// NewSecurityAssociation creates a Security Association from negotiated IKE parameters.
+func NewSecurityAssociation(spi uint32, suite CipherSuite, key []byte, salt []byte, peer *net.UDPAddr, withReplay bool) (*SecurityAssociation, error) {
 	aead, err := NewAEAD(suite, key)
 	if err != nil {
 		return nil, fmt.Errorf("creating AEAD for test SA: %w", err)

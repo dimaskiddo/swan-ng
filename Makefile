@@ -38,7 +38,7 @@ build:
 	make vendor
 	make init-dist
 	CGO_ENABLED=$(BUILD_CGO_ENABLED) go build -ldflags="-s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT)" -trimpath -a -o dist/$(SERVICE_NAME) ./cmd/swan-ng
-	echo "Build '$(SERVICE_NAME)' complete, output: dist/$(SERVICE_NAME)"
+	echo "Build '$(SERVICE_NAME)' complete."
 
 docker-build:
 	docker build --build-arg VERSION=$(VERSION) --build-arg COMMIT=$(COMMIT) -t dimaskiddo/swan-ng:v$(VERSION) .

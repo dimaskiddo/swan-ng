@@ -22,7 +22,7 @@ func makeTestSAPair(t *testing.T, suite CipherSuite, keySize int) (*SecurityAsso
 	spiOut := uint32(0xAAAA0001)
 	spiIn := uint32(0xBBBB0001)
 
-	saOut, err := NewTestSA(spiOut, suite, key, salt, &net.UDPAddr{
+	saOut, err := NewSecurityAssociation(spiOut, suite, key, salt, &net.UDPAddr{
 		IP:   net.IPv4(10, 0, 0, 2),
 		Port: 4500,
 	}, false)
@@ -32,7 +32,7 @@ func makeTestSAPair(t *testing.T, suite CipherSuite, keySize int) (*SecurityAsso
 
 	// Inbound SA uses same key/salt but different SPI (in real IPsec,
 	// each direction has its own SA; for testing we share crypto material).
-	saIn, err := NewTestSA(spiOut, suite, key, salt, &net.UDPAddr{
+	saIn, err := NewSecurityAssociation(spiOut, suite, key, salt, &net.UDPAddr{
 		IP:   net.IPv4(10, 0, 0, 1),
 		Port: 4500,
 	}, true)
@@ -282,15 +282,15 @@ func TestBuildESPTrailer_Alignment(t *testing.T) {
 		payloadLen int
 		wantPadLen int
 	}{
-		{0, 2},   // 0 + 0 + 2 = 2, need 2 pad to reach 4
-		{1, 1},   // 1 + 1 + 2 = 4
-		{2, 0},   // 2 + 0 + 2 = 4
-		{3, 3},   // 3 + 3 + 2 = 8
-		{4, 2},   // 4 + 2 + 2 = 8
-		{5, 1},   // 5 + 1 + 2 = 8
-		{6, 0},   // 6 + 0 + 2 = 8
-		{10, 0},  // 10 + 0 + 2 = 12
-		{11, 3},  // 11 + 3 + 2 = 16
+		{0, 2},  // 0 + 0 + 2 = 2, need 2 pad to reach 4
+		{1, 1},  // 1 + 1 + 2 = 4
+		{2, 0},  // 2 + 0 + 2 = 4
+		{3, 3},  // 3 + 3 + 2 = 8
+		{4, 2},  // 4 + 2 + 2 = 8
+		{5, 1},  // 5 + 1 + 2 = 8
+		{6, 0},  // 6 + 0 + 2 = 8
+		{10, 0}, // 10 + 0 + 2 = 12
+		{11, 3}, // 11 + 3 + 2 = 16
 	}
 
 	for _, tc := range tests {

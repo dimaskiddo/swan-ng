@@ -68,9 +68,9 @@ func (m *mockTUN) Close() {
 
 // mockUDPSender captures outbound UDP sends for testing.
 type mockUDPSender struct {
-	mu       sync.Mutex
-	sent     []sentPacket
-	sendErr  error
+	mu      sync.Mutex
+	sent    []sentPacket
+	sendErr error
 }
 
 type sentPacket struct {
@@ -132,12 +132,12 @@ func makeEngineTestSAPair(t *testing.T, suite CipherSuite, keySize int) (*Securi
 	spiOut := uint32(0xEEEE0001)
 	spiIn := uint32(0xEEEE0001)
 
-	outSA, err := NewTestSA(spiOut, suite, key, salt, peer, false)
+	outSA, err := NewSecurityAssociation(spiOut, suite, key, salt, peer, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	inSA, err := NewTestSA(spiIn, suite, key, salt, &net.UDPAddr{IP: net.IPv4(10, 0, 0, 1), Port: 4500}, true)
+	inSA, err := NewSecurityAssociation(spiIn, suite, key, salt, &net.UDPAddr{IP: net.IPv4(10, 0, 0, 1), Port: 4500}, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -333,13 +333,13 @@ func TestEngineOutboundEncrypt(t *testing.T) {
 	}
 
 	peer := &net.UDPAddr{IP: net.IPv4(10, 0, 0, 2), Port: 4500}
-	outSA, err := NewTestSA(0xFFFF0001, AES128GCM, key, salt, peer, false)
+	outSA, err := NewSecurityAssociation(0xFFFF0001, AES128GCM, key, salt, peer, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Also create inbound SA with same crypto for verification.
-	inSA, err := NewTestSA(0xFFFF0001, AES128GCM, key, salt, peer, true)
+	inSA, err := NewSecurityAssociation(0xFFFF0001, AES128GCM, key, salt, peer, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -460,7 +460,7 @@ func TestEngineSetDefaultOutboundSA(t *testing.T) {
 	rand.Read(key)
 	rand.Read(salt)
 
-	sa, err := NewTestSA(0xAAAA1111, AES128GCM, key, salt,
+	sa, err := NewSecurityAssociation(0xAAAA1111, AES128GCM, key, salt,
 		&net.UDPAddr{IP: net.IPv4(10, 0, 0, 5), Port: 4500}, false)
 	if err != nil {
 		t.Fatal(err)

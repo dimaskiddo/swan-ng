@@ -16,11 +16,12 @@ const (
 	StateV1AggrRecv               // Aggressive: received msg1, sent msg2
 	StateV1AggrDone               // Aggressive: received msg3 — done
 	StateV1Established            // Phase 1 SA established
+	StateV1Deleting               // Phase 1 SA is deleting
 )
 
 func (s IKEv1State) String() string {
 	names := [...]string{"Idle", "MainSARecv", "MainKERecv", "MainIDRecv",
-		"AggrRecv", "AggrDone", "Established"}
+		"AggrRecv", "AggrDone", "Established", "Deleting"}
 
 	if int(s) < len(names) {
 		return names[s]
@@ -94,6 +95,9 @@ type IKEv1ChildSA struct {
 	IntegKey     []byte
 	PeerEncrKey  []byte
 	PeerIntegKey []byte
+	EncrID       uint16
+	IntegID      uint16
+	KeyLength    uint16
 }
 
 // SPIPair returns the 16-byte combined cookie pair for session lookup.
