@@ -88,6 +88,7 @@ For a deep dive into specific components and protocols, please visit the detaile
 
 - [Project Overview](PROJECT.md)
 - [Client & Server Topologies](CLIENT_SERVER.md)
+- [LibreSWAN Porting Note](PORTING_NOTE.md)
 - [Common IKE Concepts](WORKFLOW_IKE.md)
 - [IKEv1 Workflow (Legacy)](WORKFLOW_IKEV1.md)
 - [IKEv2 Workflow (Next-Gen)](WORKFLOW_IKEV2.md)
