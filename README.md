@@ -11,7 +11,7 @@ SWAN-NG provides a high-performance **user-space ESP data plane** over virtual T
 *   **🛡️ 100% Pure Go & Zero CGO:** Statically compiled with `CGO_ENABLED=0`. Zero dependencies on host cross-compilation toolchains, OpenSSL, `certutil`, or OS-specific kernel headers. Compiles cleanly to a standalone static binary.
 *   **🦖 User-Space ESP Data Plane:** Implements IPsec ESP (Encapsulating Security Payload - RFC 4303) encryption/decryption (AES-GCM / ChaCha20-Poly1305) entirely in pure Go, utilizing virtual TUN adapters (e.g., `wireguard/tun`) to process packets safely in user-space.
 *   **🔌 Integrated PPP & L2TP Server:** Fully-featured RFC 2661 L2TP engine with native PPP framing, LCP negotiation, CHAP authentication, and IPCP dynamic IP assignments for strong compatibility with appliances like MikroTik or Palo Alto Firewalls.
-*   **🔐 Dual-Protocol IKEv1 & IKEv2 Support:** Core support for negotiating classic IKEv1 (RFC 2409) key exchanges and modern IKEv2 (RFC 7296) protocols. Supports robust Certificate, EAP, and Pre-Shared Key (PSK) authentication for IKEv2 to accommodate both high-security end-user clients and site-to-site peer-to-peer tunnels, while maintaining compatibility with legacy IKEv1 endpoints.
+*   **🔐 Dual-Protocol IKEv1 & IKEv2 Support:** Core support for negotiating classic IKEv1 (RFC 2409) key exchanges and modern IKEv2 (RFC 7296) protocols. Supports robust Certificate (EAP-TLS), EAP-MSCHAPv2, and Pre-Shared Key (PSK) authentication for IKEv2, as well as XAUTH for IKEv1. This accommodates both high-security end-user clients and site-to-site peer-to-peer tunnels, while maintaining compatibility with legacy endpoints.
 *   **📲 Profile Auto-Exporter:** Automatically generates and exports pre-configured client profiles (iOS/macOS `.mobileconfig`, StrongSwan `.sswan`, encrypted PKCS#12 `.p12`, and L2TP `.txt`) for instant, error-free client provisioning.
 *   **🌐 Universal Operation Modes:** Seamlessly supports multiple concurrent topologies: operates natively as a Server (Responder), Client (Initiator), or Site-to-Site peer over shared or independent TUN interfaces.
 *   **🔥 High-Throughput Buffering:** Employs reusable buffer pools (`sync.Pool`) for high-speed zero-copy network packet routing, minimizing garbage collection (GC) overhead under heavy traffic.
@@ -25,41 +25,61 @@ SWAN-NG provides a high-performance **user-space ESP data plane** over virtual T
 
 ```mermaid
 graph TD
-    subgraph "SWAN-NG Daemon Process (User-Space)"
-        TUN["Virtual TUN Interface<br/>(Raw IP Packet Ingest)"]
+    subgraph "Host OS"
+        Kernel["OS Kernel (Linux/Win/Mac)"]
+        IPRoute["OS IP Routing Table"]
+    end
+
+    subgraph "SWAN-NG Daemon Process (Pure Go User-Space)"
+        TUN["Virtual TUN Interface<br/>(Reads/Writes Raw IP Packets)"]
         
+        IPAM["IP Pool Manager<br/>(Dynamic Virtual IPs)"]
+        Config["Config Manager<br/>(fsnotify Hot-Reload)"]
+
         subgraph "Protocol Processing Engine"
-            ESP["ESP Encryption/Decryption<br/>(AES-GCM / ChaCha20-Poly1305)"]
+            ESP["ESP Data Plane<br/>(AES-GCM / ChaCha20-Poly1305)"]
             
             L2TP["L2TP Engine (RFC 2661)<br/>(PPP, LCP, CHAP, IPCP)"]
             
-            IKE["IKEv1 / IKEv2 State Machine<br/>(DH, X.509 Auth, MOBIKE)"]
+            IKE["IKE State Machine<br/>(IKEv1 / IKEv2)"]
         end
         
-        IPAM["IPAM Manager<br/>(Dynamic Address Pool)"]
-        Config["Configuration Manager<br/>(fsnotify Hot-Reload)"]
+        SessionMgr["Session & SA Manager<br/>(Stores SPIs & Keys)"]
     end
     
-    HostOS["Host OS Kernel / Network Stack"] <--> TUN
-    
-    subgraph "Network Listeners"
+    subgraph "External Network / WAN"
         UDP_500["UDP Port 500<br/>(IKE Control)"]
         UDP_4500["UDP Port 4500<br/>(NAT-T ESP / IKE)"]
         UDP_1701["UDP Port 1701<br/>(L2TP Control)"]
         TCP_4500["TCP Port 4500<br/>(RFC 8229 Fallback)"]
     end
+
+    %% Data flows
+    Kernel <--> |Raw IP Packets| TUN
+    Kernel -.-> IPRoute
+    
+    TUN <--> ESP
+    TUN <--> L2TP
+    L2TP <--> ESP
+    
+    ESP <--> SessionMgr
+    IKE <--> SessionMgr
     
     ESP <--> UDP_4500
     ESP <--> TCP_4500
-    L2TP <--> ESP
+    
     IKE <--> UDP_500
     IKE <--> UDP_4500
+    IKE <--> TCP_4500
     
-    UDP_500 <--> Internet["Internet / External Peers"]
-    UDP_4500 <--> Internet
-    UDP_1701 <--> Internet
-    TCP_4500 <--> Internet
+    L2TP <--> UDP_1701
 ```
+
+---
+
+## 📚 Detailed Documentation
+
+For a deep dive into specific components, architecture, and protocol workflows (IKEv1, IKEv2, ESP, L2TP, TCP Encapsulation), please visit the **[SWAN-NG Architecture Documentation](docs/ARCHITECTURE.md)**.
 
 ---
 
