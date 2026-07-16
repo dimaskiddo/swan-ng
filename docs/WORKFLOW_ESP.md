@@ -1,10 +1,10 @@
-# ESP (Encapsulating Security Payload) Workflow
+# SWAN-NG — ESP Data Plane
 
-The ESP data plane is the core engine of SWAN-NG. It operates entirely in user-space, avoiding the traditional Linux kernel XFRM stack. This guarantees that SWAN-NG is completely immune to kernel-level vulnerabilities (like Dirty Frag) and is inherently cross-platform.
+User-space ESP encryption/decryption via `internal/esp/`. Immune to kernel XFRM/Dirty Frag vulnerabilities. All crypto via Go stdlib.
 
-## ESP Packet Flow
+---
 
-When an IPsec tunnel is active, packets follow a strict path through the Go user-space engine.
+## Packet Flow
 
 ```mermaid
 graph TD
@@ -21,34 +21,48 @@ graph TD
         ESP_DEC -->|Raw IP Packet| TUN_OUT["Virtual TUN Interface"]
         TUN_OUT --> AppIn["Host Application"]
     end
-    
-    %% Session Manager link
+
     SessionMgr[("Session Manager<br/>(Holds Cryptographic Keys)")]
     ESP_ENC -.->|Lookup Outbound SPI| SessionMgr
     ESP_DEC -.->|Lookup Inbound SPI| SessionMgr
 ```
 
-## Encryption & Decryption Process
+---
 
-SWAN-NG uses high-speed AEAD (Authenticated Encryption with Associated Data) ciphers like **AES-128-GCM**, **AES-256-GCM**, or **ChaCha20-Poly1305** from Go's standard `crypto` library.
+## Inbound Processing (Decryption)
 
-### 1. Inbound Processing (Decryption)
-1. A UDP packet arrives on port 4500.
-2. SWAN-NG strips the UDP header to reveal the ESP header.
-3. The engine reads the 32-bit **SPI (Security Parameter Index)** from the ESP header.
-4. It queries the `Session Manager` for the decryption keys associated with that SPI.
-5. If the keys are found, it authenticates the ICV (Integrity Check Value) and decrypts the payload.
-6. If the payload is valid, it strips the ESP padding and writes the bare inner IP packet to the virtual TUN interface.
-7. If decryption fails, the packet is silently dropped to prevent timing attacks.
+1. UDP packet arrives on port 4500.
+2. Strip UDP header → ESP header visible.
+3. Read 32-bit **SPI** from ESP header.
+4. Query `SADatabase` for decryption keys by SPI.
+5. Authenticate ICV, decrypt payload.
+6. Strip ESP padding → write bare inner IP packet to TUN.
+7. If decryption fails → silently drop (prevents timing attacks).
 
-### 2. Outbound Processing (Encryption)
-1. The host OS routes a raw IP packet (e.g., destined for `10.0.0.5`) into the TUN interface.
-2. SWAN-NG reads the packet from the TUN file descriptor.
-3. It checks the Security Policy Database (SPD) to find the active Child SA for that destination IP.
-4. It wraps the raw IP packet in an ESP header (using the Outbound SPI), adds padding, and encrypts it using the Outbound Key.
-5. The resulting encrypted payload is wrapped in a UDP packet and dispatched to the remote peer's public IP.
+## Outbound Processing (Encryption)
 
-## Zero-Copy Buffering Strategy
+1. Host OS routes raw IP packet (e.g., `10.0.0.5`) into TUN.
+2. Read packet from TUN file descriptor.
+3. Look up **Security Policy Database (SPD)** — destination IP → active Child SA.
+4. Wrap in ESP header (Outbound SPI), add padding, encrypt with Outbound Key.
+5. Send encrypted UDP packet to remote peer's public IP.
 
-To achieve high throughput without crashing the Go garbage collector, SWAN-NG uses `sync.Pool`.
-Every time a packet is read from the TUN interface or the UDP socket, it is read into a pre-allocated byte slice from a pool. Once the packet has been processed (encrypted or decrypted) and sent on its way, the slice is returned to the pool. No new memory is allocated during steady-state packet forwarding.
+## Cipher Suites
+
+| Cipher | ID | Type |
+|---|---|---|
+| AES-128-GCM | 1 | AEAD (RFC 4106) |
+| AES-256-GCM | 2 | AEAD (RFC 4106) |
+| ChaCha20-Poly1305 | 3 | AEAD (RFC 7634) |
+| AES-128-CBC | 10 | CBC + HMAC |
+| AES-256-CBC | 11 | CBC + HMAC |
+
+---
+
+## Zero-Copy Buffering
+
+- `sync.Pool` (`esp.BufferPool`) holds pre-allocated byte slices of `MaxPacketSize`.
+- **Get:** returns buffer with `clear()` (zeroes content, prevents data leaks).
+- **Put:** returns buffer to pool. Wrong-sized buffers silently discarded.
+- No new allocation during steady-state forwarding.
+- Used by: `listener.Manager` (UDP read loop), `esp.Engine` (outbound loop).
